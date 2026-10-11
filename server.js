@@ -87,7 +87,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && (url === '/admin' || url === '/admin.html')) {
       return send(res, 200, fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8'), 'text/html; charset=utf-8');
     }
-    if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online - v3 (Firebase only)', 'text/plain');
+    if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online - v4 (Firebase only)', 'text/plain');
 
     await ensureLoaded();
 
@@ -123,17 +123,54 @@ http.createServer(async (req, res) => {
 
       if (req.method === 'POST' && url === '/api/admin/generate') {
         if (!store.loaded) return send(res, 503, { ok: false, msg: 'Firebase not connected: ' + store.error });
-        let key;
-        do { key = 'ANUBHAB-MODZ-' + randWord(8); } while (keys[key]);
-        const obj = { created: Date.now(), activatedAt: 0, exp: 0 };   // 1 day, up to 1000 devices
-        try { await fb('/keys/' + key, 'PUT', obj); }
-        catch (e) { store.error = 'Save failed: ' + e.message; return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
-        keys[key] = { ...obj, devices: {} };
-        return send(res, 200, { ok: true, key });
+        const b = await body(req);
+        const count = Math.min(Math.max(parseInt(b.count) || 1, 1), 50);
+        const note = String(b.note || '').slice(0, 60);
+        const made = [];
+        try {
+          for (let i = 0; i < count; i++) {
+            let key;
+            do { key = 'ANUBHAB-MODZ-' + randWord(8); } while (keys[key]);
+            const obj = { created: Date.now(), activatedAt: 0, exp: 0 };   // 1 day, up to 1000 devices
+            if (note) obj.note = note;
+            await fb('/keys/' + key, 'PUT', obj);
+            keys[key] = { ...obj, devices: {} };
+            made.push(key);
+          }
+        } catch (e) {
+          store.error = 'Save failed: ' + e.message;
+          return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message, keys: made });
+        }
+        return send(res, 200, { ok: true, key: made[0], keys: made });
       }
       if (req.method === 'GET' && url === '/api/admin/keys') {
-        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: devCount(v), max: MAX_DEVICES })).sort((a, b) => b.created - a.created);
+        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: devCount(v), max: MAX_DEVICES, note: v.note || '' })).sort((a, b) => b.created - a.created);
         return send(res, 200, { ok: true, keys: list });
+      }
+      if (req.method === 'POST' && url === '/api/admin/cleanup') {
+        const now = Date.now();
+        const dead = Object.keys(keys).filter(k => keys[k].activatedAt && now >= keys[k].exp);
+        try { for (const k of dead) { await fb('/keys/' + k, 'DELETE'); delete keys[k]; } }
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase delete failed: ' + e.message }); }
+        return send(res, 200, { ok: true, removed: dead.length });
+      }
+      const act = url.match(/^\/api\/admin\/keys\/([^/]+)\/(reset|extend)$/);
+      if (req.method === 'POST' && act) {
+        const key = decodeURIComponent(act[1]).toUpperCase();
+        const k = keys[key];
+        if (!k) return send(res, 404, { ok: false, msg: 'Key not found' });
+        try {
+          if (act[2] === 'reset') {          // clear all devices
+            await fb('/keys/' + key + '/devices', 'DELETE');
+            k.devices = {};
+          } else {                           // +1 day
+            if (!k.activatedAt) return send(res, 400, { ok: false, msg: 'Key not used yet (its 1 day starts at first login)' });
+            const base = Math.max(k.exp, Date.now());
+            k.exp = base + DAY;
+            await fb('/keys/' + key + '/exp', 'PUT', k.exp);
+          }
+        } catch (e) { return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
+        return send(res, 200, { ok: true });
       }
       if (req.method === 'DELETE' && url.startsWith('/api/admin/keys/')) {
         const key = decodeURIComponent(url.split('/').pop()).toUpperCase();
