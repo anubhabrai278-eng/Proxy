@@ -1,30 +1,21 @@
 // Anubhab Modz key server - zero dependencies (Node 18+). Render: Build "echo ok", Start "node server.js"
-// ENV: ADMIN_PASS (admin password), FIREBASE_DB_URL (optional, permanent key storage)
+// Keys + update popup are saved ONLY in Firebase Realtime Database (REST API). No local files.
+// ENV: ADMIN_PASS (admin password), FIREBASE_DB_URL (optional override), FIREBASE_SECRET (optional)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
-const FB = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
+const FB = (process.env.FIREBASE_DB_URL || 'https://admin-7eca6-default-rtdb.firebaseio.com')
+  .trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
 const FB_SECRET = process.env.FIREBASE_SECRET || '';
-const store = { persistent: !!FB, error: '' };
-async function fb(p, method, data) {
-  const r = await fetch(FB + p + '.json' + (FB_SECRET ? '?auth=' + encodeURIComponent(FB_SECRET) : ''), { method: method || 'GET', body: data === undefined ? undefined : JSON.stringify(data) });
-  const j = await r.json().catch(() => null);
-  if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
-  store.error = '';
-  return j;
-}
-const FILE = path.join(__dirname, 'keys.json');
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_DEVICES = 1000;
 const WORDS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-let keys = {}; // KEY -> { created, devices[], activatedAt, exp }
-let saveTimer = null;
-function saveSoon() { if (saveTimer) return; saveTimer = setTimeout(() => { saveTimer = null; save(); }, 800); }
-function randWord(n) { let r = ''; const b = crypto.randomBytes(n); for (let i = 0; i < n; i++) r += WORDS[b[i] % WORDS.length]; return r; }
-const UFILE = path.join(__dirname, 'update.json');
+
+const store = { persistent: true, error: '', loaded: false, db: FB.replace(/^https?:\/\//, '') };
+let keys = {};   // cache of Firebase /keys  ->  KEY: { created, activatedAt, exp, devices: { id: 1 } }
 let update = {
   enabled: false,
   title: 'Update Available',
@@ -32,31 +23,38 @@ let update = {
   link: 'https://whatsapp.com/channel/0029Vb7xr5tBVJl3HJkMri3P'
 };
 
+// ---- Firebase REST API ----
+async function fb(p, method, data) {
+  const r = await fetch(FB + p + '.json' + (FB_SECRET ? '?auth=' + encodeURIComponent(FB_SECRET) : ''), {
+    method: method || 'GET',
+    body: data === undefined ? undefined : JSON.stringify(data)
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
+  store.error = '';
+  return j;
+}
+// background write: never blocks login, error is shown in admin panel
+function fbq(p, method, data) {
+  fb(p, method, data).catch(e => { store.error = 'Save failed: ' + e.message; console.error('fb write failed', p, e.message); });
+}
 async function load() {
   try {
-    if (FB) {
-      keys = (await fb('/keys')) || {};
-      const u = await fb('/update');
-      if (u) update = { ...update, ...u };
-    } else {
-      if (fs.existsSync(FILE)) keys = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-      if (fs.existsSync(UFILE)) update = { ...update, ...JSON.parse(fs.readFileSync(UFILE, 'utf8')) };
+    const k = (await fb('/keys')) || {};
+    for (const v of Object.values(k)) {
+      if (Array.isArray(v.devices)) v.devices = Object.fromEntries(v.devices.filter(Boolean).map(d => [String(d).replace(/[.$#\[\]\/]/g, '_'), 1]));
+      if (!v.devices) v.devices = {};
     }
+    keys = k;
+    const u = await fb('/update');
+    if (u) update = { ...update, ...u };
+    store.loaded = true;
+    store.error = '';
   } catch (e) { store.error = 'Load failed: ' + e.message; console.error('load failed', e.message); }
 }
-async function saveUpdate() {
-  try {
-    if (FB) await fb('/update', 'PUT', update);
-    else fs.writeFileSync(UFILE, JSON.stringify(update));
-  } catch (e) { store.error = 'Save failed: ' + e.message; console.error('saveUpdate failed', e.message); }
-}
-async function save() {
-  try {
-    if (FB) await fb('/keys', 'PUT', keys);
-    else fs.writeFileSync(FILE, JSON.stringify(keys));
-  } catch (e) { store.error = 'Save failed: ' + e.message; console.error('save failed', e.message); }
-}
+async function ensureLoaded() { if (!store.loaded) await load(); }
 
+// ---- helpers ----
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'content-type,x-admin-pass',
@@ -78,6 +76,8 @@ function isAdmin(req) {
   const b = Buffer.from(ADMIN_PASS);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+function randWord(n) { let r = ''; const b = crypto.randomBytes(n); for (let i = 0; i < n; i++) r += WORDS[b[i] % WORDS.length]; return r; }
+const devCount = k => Object.keys(k.devices || {}).length;
 
 http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
@@ -89,56 +89,71 @@ http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online', 'text/plain');
 
+    await ensureLoaded();
+
     // ---- App API ----
     if (req.method === 'POST' && url === '/api/verify') {
+      if (!store.loaded) return send(res, 503, { ok: false, msg: 'Server database not ready, try again' });
       const b = await body(req);
       const key = String(b.key || '').trim().toUpperCase();
-      const device = String(b.device || '').slice(0, 100);
+      const dev = String(b.device || '').slice(0, 100).replace(/[.$#\[\]\/]/g, '_');
       const k = keys[key];
       if (!k) return send(res, 401, { ok: false, msg: 'Wrong key' });
-      if (!k.devices) k.devices = k.device ? [k.device] : [];   // migrate old keys
-      if (!k.activatedAt) { k.activatedAt = Date.now(); k.exp = k.activatedAt + DAY; saveSoon(); } // 1 day starts at first login
+      if (!k.devices) k.devices = {};
+      if (!k.activatedAt) {                       // 1 day starts at first login
+        k.activatedAt = Date.now();
+        k.exp = k.activatedAt + DAY;
+        fbq('/keys/' + key, 'PATCH', { activatedAt: k.activatedAt, exp: k.exp });
+      }
       if (Date.now() >= k.exp) return send(res, 403, { ok: false, msg: 'Key expired' });
-      if (device && !k.devices.includes(device)) {
-        if (k.devices.length >= MAX_DEVICES) return send(res, 403, { ok: false, msg: 'Device limit reached' });
-        k.devices.push(device);
-        saveSoon();
+      if (dev && !k.devices[dev]) {
+        if (devCount(k) >= MAX_DEVICES) return send(res, 403, { ok: false, msg: 'Device limit reached' });
+        k.devices[dev] = 1;
+        fbq('/keys/' + key + '/devices/' + dev, 'PUT', 1);
       }
       return send(res, 200, { ok: true, exp: k.exp });
     }
-
     if (req.method === 'GET' && url === '/api/config') return send(res, 200, { ok: true, ...update });
 
     // ---- Admin API ----
     if (url.startsWith('/api/admin/')) {
       if (!isAdmin(req)) return send(res, 401, { ok: false, msg: 'Wrong admin password' });
+
+      if (req.method === 'GET' && url === '/api/admin/status') return send(res, 200, { ok: true, ...store });
+
       if (req.method === 'POST' && url === '/api/admin/generate') {
+        if (!store.loaded) return send(res, 503, { ok: false, msg: 'Firebase not connected: ' + store.error });
         let key;
         do { key = 'ANUBHAB-MODZ-' + randWord(8); } while (keys[key]);
-        keys[key] = { created: Date.now(), devices: [], activatedAt: 0, exp: 0 }; // 1 day, up to 1000 devices
-        await save();
+        const obj = { created: Date.now(), activatedAt: 0, exp: 0 };   // 1 day, up to 1000 devices
+        try { await fb('/keys/' + key, 'PUT', obj); }
+        catch (e) { store.error = 'Save failed: ' + e.message; return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
+        keys[key] = { ...obj, devices: {} };
         return send(res, 200, { ok: true, key });
+      }
+      if (req.method === 'GET' && url === '/api/admin/keys') {
+        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: devCount(v), max: MAX_DEVICES })).sort((a, b) => b.created - a.created);
+        return send(res, 200, { ok: true, keys: list });
+      }
+      if (req.method === 'DELETE' && url.startsWith('/api/admin/keys/')) {
+        const key = decodeURIComponent(url.split('/').pop()).toUpperCase();
+        try { await fb('/keys/' + key, 'DELETE'); }
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase delete failed: ' + e.message }); }
+        delete keys[key];
+        return send(res, 200, { ok: true });
       }
       if (req.method === 'POST' && url === '/api/admin/update') {
         const b = await body(req);
-        update = {
+        const u = {
           enabled: !!b.enabled,
           title: String(b.title || 'Update Available').slice(0, 80),
           message: String(b.message || '').slice(0, 500),
           link: String(b.link || '').slice(0, 300)
         };
-        await saveUpdate();
+        try { await fb('/update', 'PUT', u); }
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
+        update = u;
         return send(res, 200, { ok: true, ...update });
-      }
-      if (req.method === 'GET' && url === '/api/admin/status') return send(res, 200, { ok: true, ...store });
-      if (req.method === 'GET' && url === '/api/admin/keys') {
-        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: (v.devices || (v.device ? [v.device] : [])).length, max: MAX_DEVICES })).sort((a, b) => b.created - a.created);
-        return send(res, 200, { ok: true, keys: list });
-      }
-      if (req.method === 'DELETE' && url.startsWith('/api/admin/keys/')) {
-        delete keys[decodeURIComponent(url.split('/').pop()).toUpperCase()];
-        await save();
-        return send(res, 200, { ok: true });
       }
     }
     send(res, 404, { ok: false, msg: 'Not found' });
@@ -146,4 +161,4 @@ http.createServer(async (req, res) => {
     console.error(e);
     send(res, 500, { ok: false, msg: 'Server error' });
   }
-}).listen(process.env.PORT || 3000, '0.0.0.0', () => { console.log('running'); load(); });
+}).listen(process.env.PORT || 3000, '0.0.0.0', () => { console.log('running, firebase:', FB); load(); });
