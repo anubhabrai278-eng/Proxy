@@ -16,6 +16,7 @@ const WORDS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const store = { persistent: true, error: '', loaded: false, db: FB.replace(/^https?:\/\//, '') };
 let keys = {};   // cache of Firebase /keys  ->  KEY: { created, activatedAt, exp, devices: { id: 1 } }
+let settings = { freeEnabled: true, minMin: 60, maxMin: 180 };   // free keys: random duration between minMin and maxMin minutes   // public free-key website ON/OFF
 let update = {
   enabled: false,
   title: 'Update Available',
@@ -48,6 +49,8 @@ async function load() {
     keys = k;
     const u = await fb('/update');
     if (u) update = { ...update, ...u };
+    const st = await fb('/settings');
+    if (st) settings = { ...settings, ...st };
     store.loaded = true;
     store.error = '';
   } catch (e) { store.error = 'Load failed: ' + e.message; console.error('load failed', e.message); }
@@ -77,7 +80,31 @@ function isAdmin(req) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 function randWord(n) { let r = ''; const b = crypto.randomBytes(n); for (let i = 0; i < n; i++) r += WORDS[b[i] % WORDS.length]; return r; }
+const fmtDur = m => Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
 const devCount = k => Object.keys(k.devices || {}).length;
+const maxDev = k => k.max || MAX_DEVICES;
+function clientIp(req) { return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(); }
+const ipHash = req => crypto.createHash('sha256').update(clientIp(req) + ADMIN_PASS).digest('hex').slice(0, 16);
+const hits = new Map();   // simple per-IP throttle for the public website API
+function throttled(req) {
+  const ip = clientIp(req), now = Date.now();
+  const arr = (hits.get(ip) || []).filter(t => now - t < 60000);
+  arr.push(now); hits.set(ip, arr);
+  if (hits.size > 5000) hits.clear();
+  return arr.length > 12;
+}
+function activeFreeKey(h) {
+  const now = Date.now();
+  return Object.entries(keys).find(([, v]) => v.pub && v.ip === h && now < v.exp);
+}
+// remove free keys that expired more than 1 hour ago
+setInterval(async () => {
+  if (!store.loaded) return;
+  const now = Date.now();
+  for (const [k, v] of Object.entries(keys)) {
+    if (v.pub && now > v.exp + 3600000) { try { await fb('/keys/' + k, 'DELETE'); delete keys[k]; } catch (e) {} }
+  }
+}, 30 * 60 * 1000);
 
 http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
@@ -87,7 +114,10 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && (url === '/admin' || url === '/admin.html')) {
       return send(res, 200, fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8'), 'text/html; charset=utf-8');
     }
-    if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online - v4 (Firebase only)', 'text/plain');
+    if (req.method === 'GET' && (url === '/getkey' || url === '/getkey.html')) {
+      return send(res, 200, fs.readFileSync(path.join(__dirname, 'public', 'getkey.html'), 'utf8'), 'text/html; charset=utf-8');
+    }
+    if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online - v6 (Firebase only)', 'text/plain');
 
     await ensureLoaded();
 
@@ -107,7 +137,7 @@ http.createServer(async (req, res) => {
       }
       if (Date.now() >= k.exp) return send(res, 403, { ok: false, msg: 'Key expired' });
       if (dev && !k.devices[dev]) {
-        if (devCount(k) >= MAX_DEVICES) return send(res, 403, { ok: false, msg: 'Device limit reached' });
+        if (devCount(k) >= maxDev(k)) return send(res, 403, { ok: false, msg: 'Device limit reached' });
         k.devices[dev] = 1;
         fbq('/keys/' + key + '/devices/' + dev, 'PUT', 1);
       }
@@ -115,11 +145,49 @@ http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url === '/api/config') return send(res, 200, { ok: true, ...update });
 
+    // ---- Public free key website API ----
+    if (url === '/api/getkey/status' && req.method === 'GET') return send(res, 200, { ok: true, enabled: settings.freeEnabled, minMin: settings.minMin, maxMin: settings.maxMin });
+    if (url === '/api/getkey/mine' && req.method === 'GET') {
+      if (throttled(req)) return send(res, 429, { ok: false, msg: 'Too many requests, wait a minute' });
+      const f = activeFreeKey(ipHash(req));
+      return send(res, 200, { ok: true, enabled: settings.freeEnabled, minMin: settings.minMin, maxMin: settings.maxMin, key: f ? f[0] : null, exp: f ? f[1].exp : 0, total: f ? f[1].exp - f[1].created : 0 });
+    }
+    if (url === '/api/getkey' && req.method === 'POST') {
+      if (throttled(req)) return send(res, 429, { ok: false, msg: 'Too many requests, wait a minute' });
+      if (!store.loaded) return send(res, 503, { ok: false, msg: 'Server database not ready, try again' });
+      if (!settings.freeEnabled) return send(res, 403, { ok: false, msg: 'Free keys are closed right now' });
+      const h = ipHash(req);
+      const ex = activeFreeKey(h);
+      if (ex) return send(res, 200, { ok: true, key: ex[0], exp: ex[1].exp, total: ex[1].exp - ex[1].created, existing: true });   // one active free key per user
+      // random duration (server decides, in 5 minute steps)
+      const lo = settings.minMin, hi = Math.max(settings.maxMin, settings.minMin);
+      const minutes = lo + 5 * crypto.randomInt(0, Math.floor((hi - lo) / 5) + 1);
+      let key;
+      do { key = 'ANUBHAB-MODZ-' + randWord(8); } while (keys[key]);
+      const now = Date.now();
+      const obj = { created: now, activatedAt: now, exp: now + minutes * 60000, pub: 1, max: 1, ip: h, note: 'Free ' + fmtDur(minutes) };
+      try { await fb('/keys/' + key, 'PUT', obj); }
+      catch (e) { store.error = 'Save failed: ' + e.message; return send(res, 500, { ok: false, msg: 'Could not save key, try again' }); }
+      keys[key] = { ...obj, devices: {} };
+      return send(res, 200, { ok: true, key, exp: obj.exp, total: minutes * 60000, minutes });
+    }
+
     // ---- Admin API ----
     if (url.startsWith('/api/admin/')) {
       if (!isAdmin(req)) return send(res, 401, { ok: false, msg: 'Wrong admin password' });
 
-      if (req.method === 'GET' && url === '/api/admin/status') return send(res, 200, { ok: true, ...store });
+      if (req.method === 'GET' && url === '/api/admin/status') return send(res, 200, { ok: true, ...store, freeEnabled: settings.freeEnabled, minMin: settings.minMin, maxMin: settings.maxMin });
+      if (req.method === 'POST' && url === '/api/admin/settings') {
+        const b = await body(req);
+        const clamp = (v, a, z, d) => { v = parseInt(v); return isNaN(v) ? d : Math.min(Math.max(v, a), z); };
+        const lo = clamp(b.minMin, 5, 1440, settings.minMin);
+        const hi = clamp(b.maxMin, lo, 1440, Math.max(settings.maxMin, lo));
+        const n = { ...settings, freeEnabled: !!b.freeEnabled, minMin: lo, maxMin: hi };
+        try { await fb('/settings', 'PUT', n); }
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
+        settings = n;
+        return send(res, 200, { ok: true, freeEnabled: settings.freeEnabled, minMin: settings.minMin, maxMin: settings.maxMin });
+      }
 
       if (req.method === 'POST' && url === '/api/admin/generate') {
         if (!store.loaded) return send(res, 503, { ok: false, msg: 'Firebase not connected: ' + store.error });
@@ -144,7 +212,7 @@ http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, key: made[0], keys: made });
       }
       if (req.method === 'GET' && url === '/api/admin/keys') {
-        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: devCount(v), max: MAX_DEVICES, note: v.note || '' })).sort((a, b) => b.created - a.created);
+        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: devCount(v), max: maxDev(v), note: v.note || '', pub: !!v.pub })).sort((a, b) => b.created - a.created);
         return send(res, 200, { ok: true, keys: list });
       }
       if (req.method === 'POST' && url === '/api/admin/cleanup') {
