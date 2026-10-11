@@ -7,9 +7,23 @@ const crypto = require('crypto');
 
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
 const FB = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
+const FB_SECRET = process.env.FIREBASE_SECRET || '';
+const store = { persistent: !!FB, error: '' };
+async function fb(p, method, data) {
+  const r = await fetch(FB + p + '.json' + (FB_SECRET ? '?auth=' + encodeURIComponent(FB_SECRET) : ''), { method: method || 'GET', body: data === undefined ? undefined : JSON.stringify(data) });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
+  store.error = '';
+  return j;
+}
 const FILE = path.join(__dirname, 'keys.json');
 const DAY = 24 * 60 * 60 * 1000;
-let keys = {}; // KEY -> { created, device, activatedAt, exp }
+const MAX_DEVICES = 1000;
+const WORDS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+let keys = {}; // KEY -> { created, devices[], activatedAt, exp }
+let saveTimer = null;
+function saveSoon() { if (saveTimer) return; saveTimer = setTimeout(() => { saveTimer = null; save(); }, 800); }
+function randWord(n) { let r = ''; const b = crypto.randomBytes(n); for (let i = 0; i < n; i++) r += WORDS[b[i] % WORDS.length]; return r; }
 const UFILE = path.join(__dirname, 'update.json');
 let update = {
   enabled: false,
@@ -21,26 +35,26 @@ let update = {
 async function load() {
   try {
     if (FB) {
-      keys = (await (await fetch(FB + '/keys.json')).json()) || {};
-      const u = await (await fetch(FB + '/update.json')).json();
+      keys = (await fb('/keys')) || {};
+      const u = await fb('/update');
       if (u) update = { ...update, ...u };
     } else {
       if (fs.existsSync(FILE)) keys = JSON.parse(fs.readFileSync(FILE, 'utf8'));
       if (fs.existsSync(UFILE)) update = { ...update, ...JSON.parse(fs.readFileSync(UFILE, 'utf8')) };
     }
-  } catch (e) { console.error('load failed', e.message); }
+  } catch (e) { store.error = 'Load failed: ' + e.message; console.error('load failed', e.message); }
 }
 async function saveUpdate() {
   try {
-    if (FB) await fetch(FB + '/update.json', { method: 'PUT', body: JSON.stringify(update) });
+    if (FB) await fb('/update', 'PUT', update);
     else fs.writeFileSync(UFILE, JSON.stringify(update));
-  } catch (e) { console.error('saveUpdate failed', e.message); }
+  } catch (e) { store.error = 'Save failed: ' + e.message; console.error('saveUpdate failed', e.message); }
 }
 async function save() {
   try {
-    if (FB) await fetch(FB + '/keys.json', { method: 'PUT', body: JSON.stringify(keys) });
+    if (FB) await fb('/keys', 'PUT', keys);
     else fs.writeFileSync(FILE, JSON.stringify(keys));
-  } catch (e) { console.error('save failed', e.message); }
+  } catch (e) { store.error = 'Save failed: ' + e.message; console.error('save failed', e.message); }
 }
 
 const CORS = {
@@ -79,12 +93,17 @@ http.createServer(async (req, res) => {
     if (req.method === 'POST' && url === '/api/verify') {
       const b = await body(req);
       const key = String(b.key || '').trim().toUpperCase();
-      const device = String(b.device || '');
+      const device = String(b.device || '').slice(0, 100);
       const k = keys[key];
       if (!k) return send(res, 401, { ok: false, msg: 'Wrong key' });
-      if (!k.activatedAt) { k.activatedAt = Date.now(); k.exp = k.activatedAt + DAY; k.device = device; await save(); }
-      if (k.device && device && k.device !== device) return send(res, 403, { ok: false, msg: 'Key already used on another device' });
+      if (!k.devices) k.devices = k.device ? [k.device] : [];   // migrate old keys
+      if (!k.activatedAt) { k.activatedAt = Date.now(); k.exp = k.activatedAt + DAY; saveSoon(); } // 1 day starts at first login
       if (Date.now() >= k.exp) return send(res, 403, { ok: false, msg: 'Key expired' });
+      if (device && !k.devices.includes(device)) {
+        if (k.devices.length >= MAX_DEVICES) return send(res, 403, { ok: false, msg: 'Device limit reached' });
+        k.devices.push(device);
+        saveSoon();
+      }
       return send(res, 200, { ok: true, exp: k.exp });
     }
 
@@ -94,8 +113,9 @@ http.createServer(async (req, res) => {
     if (url.startsWith('/api/admin/')) {
       if (!isAdmin(req)) return send(res, 401, { ok: false, msg: 'Wrong admin password' });
       if (req.method === 'POST' && url === '/api/admin/generate') {
-        const key = 'AM-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-        keys[key] = { created: Date.now(), device: '', activatedAt: 0, exp: 0 }; // 1 day keys only
+        let key;
+        do { key = 'ANUBHAB-MODZ-' + randWord(8); } while (keys[key]);
+        keys[key] = { created: Date.now(), devices: [], activatedAt: 0, exp: 0 }; // 1 day, up to 1000 devices
         await save();
         return send(res, 200, { ok: true, key });
       }
@@ -110,8 +130,9 @@ http.createServer(async (req, res) => {
         await saveUpdate();
         return send(res, 200, { ok: true, ...update });
       }
+      if (req.method === 'GET' && url === '/api/admin/status') return send(res, 200, { ok: true, ...store });
       if (req.method === 'GET' && url === '/api/admin/keys') {
-        const list = Object.entries(keys).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.created - a.created);
+        const list = Object.entries(keys).map(([key, v]) => ({ key, created: v.created, activatedAt: v.activatedAt, exp: v.exp, devices: (v.devices || (v.device ? [v.device] : [])).length, max: MAX_DEVICES })).sort((a, b) => b.created - a.created);
         return send(res, 200, { ok: true, keys: list });
       }
       if (req.method === 'DELETE' && url.startsWith('/api/admin/keys/')) {
