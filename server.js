@@ -87,7 +87,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && (url === '/admin' || url === '/admin.html')) {
       return send(res, 200, fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8'), 'text/html; charset=utf-8');
     }
-    if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online', 'text/plain');
+    if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online - v3 (Firebase only)', 'text/plain');
 
     await ensureLoaded();
 
