@@ -10,12 +10,31 @@ const FB = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
 const FILE = path.join(__dirname, 'keys.json');
 const DAY = 24 * 60 * 60 * 1000;
 let keys = {}; // KEY -> { created, device, activatedAt, exp }
+const UFILE = path.join(__dirname, 'update.json');
+let update = {
+  enabled: false,
+  title: 'Update Available',
+  message: 'A new update is available. Tap UPDATE to open our WhatsApp channel.',
+  link: 'https://whatsapp.com/channel/0029Vb7xr5tBVJl3HJkMri3P'
+};
 
 async function load() {
   try {
-    if (FB) keys = (await (await fetch(FB + '/keys.json')).json()) || {};
-    else if (fs.existsSync(FILE)) keys = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+    if (FB) {
+      keys = (await (await fetch(FB + '/keys.json')).json()) || {};
+      const u = await (await fetch(FB + '/update.json')).json();
+      if (u) update = { ...update, ...u };
+    } else {
+      if (fs.existsSync(FILE)) keys = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+      if (fs.existsSync(UFILE)) update = { ...update, ...JSON.parse(fs.readFileSync(UFILE, 'utf8')) };
+    }
   } catch (e) { console.error('load failed', e.message); }
+}
+async function saveUpdate() {
+  try {
+    if (FB) await fetch(FB + '/update.json', { method: 'PUT', body: JSON.stringify(update) });
+    else fs.writeFileSync(UFILE, JSON.stringify(update));
+  } catch (e) { console.error('saveUpdate failed', e.message); }
 }
 async function save() {
   try {
@@ -69,6 +88,8 @@ http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, exp: k.exp });
     }
 
+    if (req.method === 'GET' && url === '/api/config') return send(res, 200, { ok: true, ...update });
+
     // ---- Admin API ----
     if (url.startsWith('/api/admin/')) {
       if (!isAdmin(req)) return send(res, 401, { ok: false, msg: 'Wrong admin password' });
@@ -77,6 +98,17 @@ http.createServer(async (req, res) => {
         keys[key] = { created: Date.now(), device: '', activatedAt: 0, exp: 0 }; // 1 day keys only
         await save();
         return send(res, 200, { ok: true, key });
+      }
+      if (req.method === 'POST' && url === '/api/admin/update') {
+        const b = await body(req);
+        update = {
+          enabled: !!b.enabled,
+          title: String(b.title || 'Update Available').slice(0, 80),
+          message: String(b.message || '').slice(0, 500),
+          link: String(b.link || '').slice(0, 300)
+        };
+        await saveUpdate();
+        return send(res, 200, { ok: true, ...update });
       }
       if (req.method === 'GET' && url === '/api/admin/keys') {
         const list = Object.entries(keys).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.created - a.created);
