@@ -351,4 +351,28 @@ http.createServer(async (req, res) => {
       if (req.method === 'DELETE' && url.startsWith('/api/admin/keys/')) {
         const key = decodeURIComponent(url.split('/').pop()).toUpperCase();
         try { await fb('/keys/' + key, 'DELETE'); }
-        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase delete failed: ' + e.messag
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase delete failed: ' + e.message }); }
+        delete keys[key];
+        return send(res, 200, { ok: true });
+      }
+      if (req.method === 'POST' && url === '/api/admin/update') {
+        const b = await body(req);
+        const u = {
+          enabled: !!b.enabled,
+          latest: Math.min(Math.max(parseInt(b.latest) || 0, 0), 1000000),
+          title: String(b.title || 'Update Available').slice(0, 80),
+          message: String(b.message || '').slice(0, 500),
+          link: String(b.link || '').slice(0, 300)
+        };
+        try { await fb('/update', 'PUT', u); }
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
+        update = u;
+        return send(res, 200, { ok: true, ...update });
+      }
+    }
+    send(res, 404, { ok: false, msg: 'Not found' });
+  } catch (e) {
+    console.error(e);
+    send(res, 500, { ok: false, msg: 'Server error' });
+  }
+}).listen(process.env.PORT || 3000, '0.0.0.0', () => { console.log('running, firebase:', FB); load(); });
