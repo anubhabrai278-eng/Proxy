@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b18">
+<title>Anubhab Modz Admin</title>
+<style>
+:root{--bg:#070b18;--card:rgba(255,255,255,.055);--line:rgba(255,255,255,.11);--txt:#eef1ff;--mut:#8f98c2;--g1:#00c6ff;--g2:#a044ff;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--txt);min-height:100vh;
+background:radial-gradient(900px 500px at 10% -10%,rgba(0,198,255,.18),transparent),radial-gradient(800px 500px at 100% 0,rgba(160,68,255,.2),transparent),var(--bg);padding:14px 14px 60px}
+.wrap{max-width:720px;margin:auto}
+h1{font-size:19px;letter-spacing:3px;margin:0;text-align:center;background:linear-gradient(90deg,var(--g1),var(--g2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;backdrop-filter:blur(8px)}
+.card h2{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+input[type=text],input[type=password],input[type=number]{width:100%;padding:13px 14px;border-radius:13px;border:1px solid var(--line);background:rgba(8,12,28,.7);color:var(--txt);font-size:15px;outline:none;margin-bottom:10px}
+input:focus{border-color:var(--g1)}
+button{font:inherit;cursor:pointer;border:0;color:#fff}
+.btn{width:100%;padding:14px;border-radius:14px;font-weight:700;font-size:15px;background:linear-gradient(90deg,var(--g1),var(--g2));box-shadow:0 6px 22px rgba(120,80,255,.28)}
+.btn:active{transform:scale(.985)}.btn.ghost{background:rgba(255,255,255,.08);box-shadow:none}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.chip{font-size:12px;padding:6px 10px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--mut);max-width:62%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}.chip.bad{color:var(--bad);border-color:rgba(248,113,113,.4)}
+.sm{padding:7px 11px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(255,255,255,.1);width:auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 6px;text-align:center}
+.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--mut)}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.qc{padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.08);font-size:13px;border:1px solid transparent}
+.qc.on{border-color:var(--g1);color:var(--g1)}
+.new{background:linear-gradient(135deg,rgba(0,198,255,.13),rgba(160,68,255,.15));border:1px solid rgba(160,68,255,.4);border-radius:14px;padding:12px;margin-top:12px}
+.nk{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0}
+.nk code,.key{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.5px;word-break:break-all}
+.nk code{font-size:15px}
+.row{border-top:1px solid var(--line);padding:13px 0}.row:first-child{border-top:0}
+.rtop{display:flex;align-items:center;justify-content:space-between;gap:8px}.key{font-size:14px}
+.badge{font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px;white-space:nowrap}
+.b-active{background:rgba(74,222,128,.15);color:var(--ok)}.b-unused{background:rgba(0,198,255,.15);color:var(--g1)}.b-expired{background:rgba(248,113,113,.15);color:var(--bad)}
+.meta{font-size:12px;color:var(--mut);margin-top:5px}
+.bar{height:5px;border-radius:9px;background:rgba(255,255,255,.09);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--g1),var(--g2))}
+.acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.acts button{padding:8px 11px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(255,255,255,.09)}
+.acts .cp{background:linear-gradient(90deg,var(--g1),var(--g2))}.acts .danger{background:rgba(248,113,113,.18);color:var(--bad)}
+.fl{font-size:12px;color:var(--mut);margin:0 0 4px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.empty{text-align:center;color:var(--mut);padding:22px 0;font-size:14px}
+.sw{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sw input{display:none}.sw .t{width:50px;height:28px;border-radius:99px;background:rgba(255,255,255,.14);position:relative;transition:.2s;flex:none}
+.sw .t:after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+.t{background:linear-gradient(90deg,var(--g1),var(--g2))}.sw input:checked+.t:after{left:25px}
+.hint{font-size:12px;color:var(--mut);margin:-4px 0 12px;line-height:1.5}
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,30px);background:#1b2342;border:1px solid var(--line);padding:11px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#lock{max-width:380px;margin:12vh auto 0;text-align:center}
+#lock .logo{font-size:46px;margin-bottom:8px}
+.err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+</style></head><body>
+
+<div id="lock" class="card">
+  <div class="logo">🔐</div>
+  <h1>ANUBHAB MODZ</h1>
+  <div class="hint" style="margin:8px 0 16px">Admin panel</div>
+  <input id="pass" type="password" placeholder="Admin password" autocomplete="current-password">
+  <button class="btn" id="unlock">Unlock</button>
+  <div class="err" id="lockerr"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top">
+    <h1 style="text-align:left;font-size:17px">ANUBHAB MODZ</h1>
+    <div style="display:flex;gap:8px;align-items:center;min-width:0">
+      <span class="chip" id="st">connecting…</span>
+      <button class="sm" id="logout">Logout</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="s_all">0</b><span>Keys</span></div>
+    <div class="stat"><b id="s_act" style="color:var(--ok)">0</b><span>Active</span></div>
+    <div class="stat"><b id="s_un" style="color:var(--g1)">0</b><span>Unused</span></div>
+    <div class="stat"><b id="s_dev">0</b><span>Devices</span></div>
+  </div>
+
+  <div class="card">
+    <h2>⚡ Generate keys <span class="chip" style="margin-left:auto">1 day · 1000 devices</span></h2>
+    <div class="chips" id="qc">
+      <button class="qc on" data-n="1">1 key</button><button class="qc" data-n="5">5 keys</button>
+      <button class="qc" data-n="10">10 keys</button><button class="qc" data-n="20">20 keys</button>
+    </div>
+    <input id="note" type="text" maxlength="60" placeholder="Note / customer name (optional)">
+    <button class="btn" id="gen">⚡ Generate</button>
+    <div id="newbox" class="new" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13px">New keys</b><button class="sm" id="copyall">📋 Copy all</button></div>
+      <div id="newlist"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🌐 Key generator website <span class="chip" id="f_state" style="margin-left:auto">…</span></h2>
+    <div class="hint" id="f_yt"></div>
+    <label class="sw"><span>Website ON (users can generate keys)</span><input id="f_en" type="checkbox"><i class="t"></i></label>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="stat"><b id="fs_tot">0</b><span>Free keys</span></div>
+      <div class="stat"><b id="fs_act" style="color:var(--ok)">0</b><span>Active now</span></div>
+      <div class="stat"><b id="fs_day">0</b><span>Last 24h</span></div>
+    </div>
+    <div class="nk"><code id="f_url" style="font-size:13px"></code><button class="sm" id="f_copy">📋 Copy link</button></div>
+    <button class="btn ghost" id="f_open" style="margin-top:8px">🔗 Open website</button>
+  </div>
+
+  <div class="card">
+    <h2>⚙️ Key rules</h2>
+    <div class="g2">
+      <div><div class="fl">Min time (minutes)</div><input id="f_min" type="number" min="5" max="1440"></div>
+      <div><div class="fl">Max time (minutes)</div><input id="f_max" type="number" min="5" max="1440"></div>
+      <div><div class="fl">Devices per free key</div><input id="f_dev" type="number" min="1" max="1000"></div>
+      <div><div class="fl">Keys per user / day (0 = no limit)</div><input id="f_day" type="number" min="0" max="100"></div>
+    </div>
+    <div class="fl">Basic mode: seconds user must wait after opening YouTube (10-120)</div>
+    <input id="f_wait" type="number" min="10" max="120">
+    <button class="btn" id="f_save_rules">Save rules</button>
+  </div>
+
+  <div class="card">
+    <h2>✏️ Website content</h2>
+    <div class="fl">Title</div><input id="f_title" type="text" maxlength="40">
+    <div class="fl">Subtitle</div><input id="f_sub" type="text" maxlength="80">
+    <div class="fl">Notice shown on the website (empty = hidden)</div><input id="f_notice" type="text" maxlength="200" placeholder="e.g. New update coming tonight">
+    <div class="fl">Message when website is OFF</div><input id="f_closed" type="text" maxlength="120">
+    <div class="fl">YouTube channel link</div><input id="f_ytu" type="text" maxlength="300">
+    <div class="fl">YouTube channel handle (used for the real check)</div><input id="f_yth" type="text" maxlength="60" placeholder="@channelname">
+    <button class="btn" id="f_save_content">Save content</button>
+  </div>
+
+  <div class="card">
+    <h2>🧨 Free key tools</h2>
+    <div class="hint">Only affects keys made by the website. Admin-made keys are not touched.</div>
+    <div class="chips">
+      <button class="sm" id="f_exp" style="color:var(--warn)">⏹ Expire all active free keys</button>
+      <button class="sm" id="f_del" style="color:var(--bad)">🗑 Delete all free keys</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📣 Update popup</h2>
+    <div class="hint">While ON, the popup shows on every app open and blocks the app (no close button). UPDATE opens the link.</div>
+    <label class="sw"><span>Show update popup in app</span><input id="u_en" type="checkbox"><i class="t"></i></label>
+    <input id="u_title" type="text" placeholder="Title">
+    <input id="u_msg" type="text" placeholder="Message">
+    <input id="u_link" type="text" placeholder="Link (WhatsApp channel)">
+    <button class="btn" id="u_save">Save update popup</button>
+  </div>
+
+  <div class="card">
+    <h2>🔑 All keys <button class="sm" id="refresh" style="margin-left:auto">↻ Refresh</button></h2>
+    <input id="search" type="text" placeholder="🔎 Search key or note">
+    <div class="chips" id="flt">
+      <button class="qc on" data-f="all">All <span id="c_all"></span></button>
+      <button class="qc" data-f="active">Active <span id="c_act"></span></button>
+      <button class="qc" data-f="unused">Unused <span id="c_un"></span></button>
+      <button class="qc" data-f="expired">Expired <span id="c_exp"></span></button>
+    </div>
+    <div class="chips">
+      <button class="sm" id="copyun">📋 Copy unused keys</button>
+      <button class="sm" id="clean" style="color:var(--bad)">🧹 Delete expired</button>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const API='https://proxy-90bc.onrender.com';
+const $=id=>document.getElementById(id);
+let pass=localStorage.getItem('ap')||'',keys=[],filter='all',qty=1,timer=null;
+
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2000)}
+
+async function call(path,method,data){
+  try{
+    const o={method:method||'GET',headers:{'x-admin-pass':pass,'Content-Type':'application/json'}};
+    if(data)o.body=JSON.stringify(data);
+    const r=await fetch(API+path,o);
+    if(r.status===404&&path.indexOf('/api/')===0)return{ok:false,msg:'404: old server code is deployed. Update server.js on GitHub and redeploy on Render.'};
+    return await r.json();
+  }catch(e){return{ok:false,msg:'Server not responding. Render may be waking up (wait 1 minute and retry).'}}
+}
+
+/* ---- copy (works on https, file:// and content:// too) ---- */
+function legacyCopy(t){
+  const a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');
+  a.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(a);
+  a.focus();a.select();a.setSelectionRange(0,t.length);
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}
+  a.remove();return ok;
+}
+async function copy(t,label){
+  let ok=false;
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);ok=true}}catch(e){}
+  if(!ok)ok=legacyCopy(t);
+  if(ok)toast('✓ '+(label||'Copied'));
+  else window.prompt('Copy this:',t);
+}
+
+/* ---- login ---- */
+async function unlock(){
+  pass=$('pass').value.trim()||pass;
+  $('lockerr').textContent='Checking…';
+  const r=await call('/api/admin/status');
+  if(!r.ok){$('lockerr').textContent=r.msg||'Failed';return}
+  localStorage.setItem('ap',pass);
+  $('lock').hidden=true;$('app').hidden=false;
+  setStatus(r);fillSettings(r.settings);loadUpd();loadKeys();
+  clearInterval(timer);timer=setInterval(()=>{if(!document.hidden){loadKeys();status()}},5000);
+}
+function setStatus(r){
+  const c=$('st');
+  if(r.freeEnabled!==undefined&&document.activeElement!==$('f_en'))$('f_en').checked=!!r.freeEnabled;
+  if(r.freeEnabled!==undefined){const f=$('f_state');f.className='chip '+(r.freeEnabled?'ok':'bad');f.textContent=r.freeEnabled?'● ON':'● OFF'}
+  if(r.ytMode)$('f_yt').innerHTML='📺 YouTube subscribe check: '+(r.ytMode==='google'?'<b style="color:var(--ok)">Google verified</b> (real check)':'<b style="color:var(--warn)">Basic mode</b> (user must visit the channel; add GOOGLE_CLIENT_ID in Render for a real check)');
+  if(r.free){$('fs_tot').textContent=r.free.total;$('fs_act').textContent=r.free.active;$('fs_day').textContent=r.free.today}
+  if(r.error){c.className='chip bad';c.textContent='⚠ '+r.error}
+  else if(r.loaded){c.className='chip ok';c.textContent='● Firebase · '+r.db}
+  else{c.className='chip bad';c.textContent='⚠ Firebase not connected'}
+}
+function fillSettings(s){
+  if(!s)return;
+  $('f_en').checked=!!s.freeEnabled;
+  $('f_min').value=s.minMin;$('f_max').value=s.maxMin;$('f_dev').value=s.freeDevices;$('f_day').value=s.dailyLimit;$('f_wait').value=s.waitSec;
+  $('f_title').value=s.title||'';$('f_sub').value=s.subtitle||'';$('f_notice').value=s.notice||'';$('f_closed').value=s.closedMsg||'';
+  $('f_ytu').value=s.ytUrl||'';$('f_yth').value=s.ytHandle||'';
+}
+async function status(){const r=await call('/api/admin/status');if(r.ok)setStatus(r)}
+$('unlock').onclick=unlock;
+$('pass').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
+$('logout').onclick=()=>{localStorage.removeItem('ap');location.reload()};
+
+/* ---- keys ---- */
+const state=k=>!k.activatedAt?'unused':(Date.now()>=k.exp?'expired':'active');
+function left(ms){
+  const m=Math.max(0,Math.floor(ms/60000)),d=Math.floor(m/1440),h=Math.floor(m%1440/60),mm=m%60;
+  return d?d+'d '+h+'h':(h?h+'h '+mm+'m':mm+'m');
+}
+async function loadKeys(){
+  const r=await call('/api/admin/keys');
+  if(!r.ok){$('list').innerHTML='<div class="empty" style="color:var(--bad)">'+esc(r.msg)+'</div>';return}
+  keys=r.keys;render();
+}
+function render(){
+  const cnt={all:keys.length,active:0,unused:0,expired:0};let dev=0;
+  keys.forEach(k=>{cnt[state(k)]++;dev+=k.devices});
+  $('s_all').textContent=cnt.all;$('s_act').textContent=cnt.active;$('s_un').textContent=cnt.unused;$('s_dev').textContent=dev;
+  $('c_all').textContent=cnt.all;$('c_act').textContent=cnt.active;$('c_un').textContent=cnt.unused;$('c_exp').textContent=cnt.expired;
+  const q=$('search').value.trim().toLowerCase();
+  const rows=keys.filter(k=>(filter==='all'||state(k)===filter)&&(!q||k.key.toLowerCase().includes(q)||(k.note||'').toLowerCase().includes(q)));
+  $('list').innerHTML=rows.map(k=>{
+    const s=state(k);
+    const info=s==='unused'?'Starts at first login':s==='active'?'⏳ '+left(k.exp-Date.now())+' left':'Expired '+new Date(k.exp).toLocaleString();
+    const pct=Math.min(100,k.devices/k.max*100);
+    return `<div class="row"><div class="rtop"><span class="key">${esc(k.key)}</span><span><span class="badge b-${s}">${s.toUpperCase()}</span>${k.pub?' <span class="badge" style="background:rgba(160,68,255,.2);color:#c9a0ff">FREE</span>':''}</span></div>
+<div class="meta">${k.note?'📝 '+esc(k.note)+' · ':''}${info}</div>
+<div class="bar"><i style="width:${pct}%"></i></div><div class="meta">${k.devices}/${k.max} devices</div>
+<div class="acts"><button class="cp" data-a="copy" data-k="${esc(k.key)}">📋 Copy</button><button data-a="extend" data-k="${esc(k.key)}">⏱ +1 day</button><button data-a="reset" data-k="${esc(k.key)}">♻ Reset devices</button><button class="danger" data-a="del" data-k="${esc(k.key)}">🗑 Delete</button></div></div>`;
+  }).join('')||'<div class="empty">No keys</div>';
+}
+$('list').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-a]');if(!b)return;
+  const k=b.dataset.k,a=b.dataset.a;
+  if(a==='copy')return copy(k,'Key copied');
+  if(a==='del'){if(!confirm('Delete '+k+'?'))return;const r=await call('/api/admin/keys/'+encodeURIComponent(k),'DELETE');toast(r.ok?'Deleted':r.msg)}
+  if(a==='reset'){if(!confirm('Remove all devices from '+k+'?'))return;const r=await call('/api/admin/keys/'+encodeURIComponent(k)+'/reset','POST');toast(r.ok?'Devices reset':r.msg)}
+  if(a==='extend'){const r=await call('/api/admin/keys/'+encodeURIComponent(k)+'/extend','POST');toast(r.ok?'+1 day added':r.msg)}
+  loadKeys();
+});
+$('refresh').onclick=()=>{loadKeys();status();toast('Refreshed')};
+$('search').oninput=render;
+$('flt').addEventListener('click',e=>{const b=e.target.closest('button[data-f]');if(!b)return;filter=b.dataset.f;[...$('flt').children].forEach(x=>x.classList.toggle('on',x===b));render()});
+$('copyun').onclick=()=>{const u=keys.filter(k=>state(k)==='unused').map(k=>k.key);u.length?copy(u.join('\n'),u.length+' unused keys copied'):toast('No unused keys')};
+$('clean').onclick=async()=>{if(!confirm('Delete all expired keys?'))return;const r=await call('/api/admin/cleanup','POST');toast(r.ok?r.removed+' expired keys deleted':r.msg);loadKeys()};
+
+/* ---- generate ---- */
+$('qc').addEventListener('click',e=>{const b=e.target.closest('button[data-n]');if(!b)return;qty=+b.dataset.n;[...$('qc').children].forEach(x=>x.classList.toggle('on',x===b))});
+let lastNew=[];
+$('gen').onclick=async()=>{
+  const b=$('gen');b.disabled=true;b.textContent='Generating…';
+  const r=await call('/api/admin/generate','POST',{count:qty,note:$('note').value});
+  b.disabled=false;b.textContent='⚡ Generate';
+  if(!r.ok){toast(r.msg||'Failed');return}
+  lastNew=r.keys||[r.key];
+  $('newbox').hidden=false;
+  $('newlist').innerHTML=lastNew.map(k=>`<div class="nk"><code>${esc(k)}</code><button class="sm" data-c="${esc(k)}">📋 Copy</button></div>`).join('');
+  if(lastNew.length===1)copy(lastNew[0],'Key copied');else toast(lastNew.length+' keys created');
+  loadKeys();
+};
+$('newlist').addEventListener('click',e=>{const b=e.target.closest('button[data-c]');if(b)copy(b.dataset.c,'Key copied')});
+$('copyall').onclick=()=>copy(lastNew.join('\n'),lastNew.length+' keys copied');
+
+/* ---- free key website ---- */
+const FREE_URL=API+'/getkey';
+$('f_url').textContent=FREE_URL;
+$('f_copy').onclick=()=>copy(FREE_URL,'Link copied');
+$('f_open').onclick=()=>window.open(FREE_URL,'_blank');
+const saveFree=async(msg)=>{
+  const r=await call('/api/admin/settings','POST',{
+    freeEnabled:$('f_en').checked,minMin:$('f_min').value,maxMin:$('f_max').value,freeDevices:$('f_dev').value,dailyLimit:$('f_day').value,waitSec:$('f_wait').value,
+    title:$('f_title').value,subtitle:$('f_sub').value,notice:$('f_notice').value,closedMsg:$('f_closed').value,ytUrl:$('f_ytu').value,ytHandle:$('f_yth').value});
+  if(!r.ok){toast(r.msg);return false}
+  fillSettings(r.settings);status();
+  toast(msg||(r.settings.freeEnabled?'Saved · website ON':'Saved · website OFF'));return true;
+};
+$('f_en').onchange=()=>saveFree();
+$('f_save_rules').onclick=()=>saveFree('✓ Rules saved');
+$('f_save_content').onclick=()=>saveFree('✓ Content saved');
+$('f_exp').onclick=async()=>{if(!confirm('Expire ALL active free keys now?'))return;const r=await call('/api/admin/free/expire-all','POST');toast(r.ok?r.count+' free keys expired':r.msg);loadKeys();status()};
+$('f_del').onclick=async()=>{if(!confirm('Delete ALL free keys?'))return;const r=await call('/api/admin/free/delete-all','POST');toast(r.ok?r.count+' free keys deleted':r.msg);loadKeys();status()};
+
+/* ---- update popup ---- */
+async function loadUpd(){
+  const j=await call('/api/config');if(!j.ok)return;
+  $('u_en').checked=!!j.enabled;$('u_title').value=j.title||'';$('u_msg').value=j.message||'';$('u_link').value=j.link||'';
+}
+$('u_save').onclick=async()=>{
+  const j=await call('/api/admin/update','POST',{enabled:$('u_en').checked,title:$('u_title').value,message:$('u_msg').value,link:$('u_link').value});
+  toast(j.ok?(j.enabled?'Saved · popup is ON':'Saved · popup is OFF'):j.msg);
+};
+
+if(pass){$('pass').value=pass;unlock()}
+</script></body></html>

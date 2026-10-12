@@ -16,6 +16,10 @@ const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();   // set =
 const GOOGLE_API = process.env.GOOGLE_API_BASE || 'https://www.googleapis.com';
 const GOOGLE_AUTH = process.env.GOOGLE_AUTH_BASE || 'https://oauth2.googleapis.com';
 const DAY = 24 * 60 * 60 * 1000;
+function page(name) {   // admin.html / getkey.html can sit next to server.js or inside public/
+  for (const p of [path.join(__dirname, name), path.join(__dirname, 'public', name)]) if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+  return 'Page file ' + name + ' not found. Upload ' + name + ' next to server.js on GitHub.';
+}
 const MAX_DEVICES = 1000;
 const WORDS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -159,10 +163,10 @@ http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
 
     if (req.method === 'GET' && (url === '/admin' || url === '/admin.html')) {
-      return send(res, 200, fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8'), 'text/html; charset=utf-8');
+      return send(res, 200, page('admin.html'), 'text/html; charset=utf-8');
     }
     if (req.method === 'GET' && (url === '/getkey' || url === '/getkey.html')) {
-      return send(res, 200, fs.readFileSync(path.join(__dirname, 'public', 'getkey.html'), 'utf8'), 'text/html; charset=utf-8');
+      return send(res, 200, page('getkey.html'), 'text/html; charset=utf-8');
     }
     if (req.method === 'GET' && url === '/') return send(res, 200, 'Anubhab Modz API online - v8 (Firebase only)', 'text/plain');
 
