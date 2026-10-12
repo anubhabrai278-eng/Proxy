@@ -38,6 +38,7 @@ let settings = {            // controlled from the admin panel, saved in Firebas
 };   // public free-key website ON/OFF
 let update = {
   enabled: false,
+  latest: 0,                // newest APK versionCode. Apps that send ?v= >= latest never see the popup. 0 = everyone sees it
   title: 'Update Available',
   message: 'A new update is available. Tap UPDATE to open our WhatsApp channel.',
   link: 'https://whatsapp.com/channel/0029Vb7xr5tBVJl3HJkMri3P'
@@ -194,7 +195,14 @@ http.createServer(async (req, res) => {
       }
       return send(res, 200, { ok: true, exp: k.exp });
     }
-    if (req.method === 'GET' && url === '/api/config') return send(res, 200, { ok: true, ...update });
+    if (req.method === 'GET' && url === '/api/config') {
+      // old APKs send no version -> they get the popup. New APK sends ?v=<versionCode> (or header x-app-version).
+      const qs = new URLSearchParams(req.url.split('?')[1] || '');
+      const v = parseInt(qs.get('v') || req.headers['x-app-version']);
+      const cfg = { ...update };
+      if (!isNaN(v) && update.latest > 0 && v >= update.latest) cfg.enabled = false;
+      return send(res, 200, { ok: true, ...cfg });
+    }
 
     // ---- Public free key website API ----
     if (url === '/api/getkey/status' && req.method === 'GET') {
@@ -343,27 +351,4 @@ http.createServer(async (req, res) => {
       if (req.method === 'DELETE' && url.startsWith('/api/admin/keys/')) {
         const key = decodeURIComponent(url.split('/').pop()).toUpperCase();
         try { await fb('/keys/' + key, 'DELETE'); }
-        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase delete failed: ' + e.message }); }
-        delete keys[key];
-        return send(res, 200, { ok: true });
-      }
-      if (req.method === 'POST' && url === '/api/admin/update') {
-        const b = await body(req);
-        const u = {
-          enabled: !!b.enabled,
-          title: String(b.title || 'Update Available').slice(0, 80),
-          message: String(b.message || '').slice(0, 500),
-          link: String(b.link || '').slice(0, 300)
-        };
-        try { await fb('/update', 'PUT', u); }
-        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
-        update = u;
-        return send(res, 200, { ok: true, ...update });
-      }
-    }
-    send(res, 404, { ok: false, msg: 'Not found' });
-  } catch (e) {
-    console.error(e);
-    send(res, 500, { ok: false, msg: 'Server error' });
-  }
-}).listen(process.env.PORT || 3000, '0.0.0.0', () => { console.log('running, firebase:', FB); load(); });
+        catch (e) { return send(res, 500, { ok: false, msg: 'Firebase delete failed: ' + e.messag
