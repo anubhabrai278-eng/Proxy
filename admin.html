@@ -140,8 +140,9 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
 
   <div class="card">
     <h2>📣 Update popup</h2>
-    <div class="hint">While ON, the popup shows on every app open and blocks the app (no close button). UPDATE opens the link.</div>
+    <div class="hint">While ON, the popup shows in OLD apps and blocks the app (no close button). UPDATE opens the link. Apps whose version is the same or newer than "Latest version" never see it.</div>
     <label class="sw"><span>Show update popup in app</span><input id="u_en" type="checkbox"><i class="t"></i></label>
+    <input id="u_latest" type="number" min="0" placeholder="Latest APK version code (e.g. 2). 0 = show to everyone">
     <input id="u_title" type="text" placeholder="Title">
     <input id="u_msg" type="text" placeholder="Message">
     <input id="u_link" type="text" placeholder="Link (WhatsApp channel)">
@@ -315,10 +316,10 @@ $('f_del').onclick=async()=>{if(!confirm('Delete ALL free keys?'))return;const r
 /* ---- update popup ---- */
 async function loadUpd(){
   const j=await call('/api/config');if(!j.ok)return;
-  $('u_en').checked=!!j.enabled;$('u_title').value=j.title||'';$('u_msg').value=j.message||'';$('u_link').value=j.link||'';
+  $('u_en').checked=!!j.enabled;$('u_latest').value=j.latest||0;$('u_title').value=j.title||'';$('u_msg').value=j.message||'';$('u_link').value=j.link||'';
 }
 $('u_save').onclick=async()=>{
-  const j=await call('/api/admin/update','POST',{enabled:$('u_en').checked,title:$('u_title').value,message:$('u_msg').value,link:$('u_link').value});
+  const j=await call('/api/admin/update','POST',{enabled:$('u_en').checked,latest:$('u_latest').value,title:$('u_title').value,message:$('u_msg').value,link:$('u_link').value});
   toast(j.ok?(j.enabled?'Saved · popup is ON':'Saved · popup is OFF'):j.msg);
 };
 
