@@ -86,7 +86,7 @@ function body(req) {
   return new Promise(r => {
     let d = '';
     req.on('data', c => { d += c; if (d.length > 1e5) req.destroy(); });
-    req.on('end', () => { try { r(JSON.parse(d || '{}')); } catch { r({}); } });
+    req.on('end', () => { try { r(JSON.parse(d || '{}')); } catch (err) { r({}); } });
   });
 }
 function isAdmin(req) {
@@ -358,4 +358,4 @@ http.createServer(async (req, res) => {
       }
     }
     send(res, 404, { ok: false, msg: 'Not found' });
-  } catch 
+  } 
