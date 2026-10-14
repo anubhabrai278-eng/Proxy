@@ -1,12 +1,7 @@
 {
-  "name": "anubhab-key-server",
-  "version": "1.0.0",
-  "description": "New Key Server for ANUBHAB MODZ",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "express": "^4.19.2"
-  }
+  "name": "anubhab-modz-keyserver",
+  "version": "2.0.0",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
 }
