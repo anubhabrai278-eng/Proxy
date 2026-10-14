@@ -1,9 +1,6 @@
 const express = require('express');
-const cors = require('cors');
 const app = express();
 
-// Middleware Setup
-app.use(cors());
 app.use(express.json());
 
 // Import video-step module
@@ -18,7 +15,6 @@ app.post('/api/getkey', (req, res) => {
   res.json({ ok: true, key: generatedKey });
 });
 
-// Port configuration for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
