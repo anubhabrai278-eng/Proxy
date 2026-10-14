@@ -1,19 +1,24 @@
 // video-step.js — server side of the "Watch video" step
-// Put this file next to server.js (Render / GitHub), then in server.js add:
-//
-//   require('./video-step')(app, {
-//     isAdmin: req => req.headers['x-admin-pass'] === process.env.ADMIN_PASS, // use YOUR admin check
-//     store: {                                   // use YOUR Firebase so settings survive restarts
-//       get: async () => (await admin.database().ref('freeVideo').once('value')).val(),
-//       set: async c => admin.database().ref('freeVideo').set(c)
-//     },
-//     ytKey: process.env.YT_API_KEY              // optional: verifies real comments via YouTube API
-//   });
-//
-// IMPORTANT: this line must come AFTER cors()/express.json() and BEFORE your existing
-// app.post('/api/getkey', ...) route, because it guards that route.
 
 const crypto = require('crypto');
+const https = require('https');
+
+// Helper function for YouTube API fetch (safely works on all Node versions)
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    if (typeof fetch === 'function') {
+      fetch(url).then(r => r.json()).then(resolve).catch(reject);
+      return;
+    }
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+      });
+    }).on('error', reject);
+  });
+}
 
 module.exports = function (app, opts) {
   opts = opts || {};
@@ -21,7 +26,7 @@ module.exports = function (app, opts) {
   const isAdmin = opts.isAdmin || (() => false);
   const ytKey = opts.ytKey || '';
   let mem = null;
-  const store = opts.store || {                       // fallback: memory only (resets on restart)
+  const store = opts.store || {                       // fallback: memory only
     get: async () => mem,
     set: async c => { mem = JSON.parse(JSON.stringify(c)); }
   };
@@ -82,8 +87,8 @@ module.exports = function (app, opts) {
       if (!b.commented) return res.json({ ok: false, msg: 'Please comment on the video' });
       if (ytKey && b.commentId) {   // real comment check
         try {
-          const r = await fetch('https://www.googleapis.com/youtube/v3/comments?part=snippet&id=' + encodeURIComponent(String(b.commentId).slice(0, 80)) + '&key=' + ytKey);
-          const j = await r.json();
+          const url = 'https://www.googleapis.com/youtube/v3/comments?part=snippet&id=' + encodeURIComponent(String(b.commentId).slice(0, 80)) + '&key=' + ytKey;
+          const j = await fetchJson(url);
           const it = j.items && j.items[0];
           if (!it || (it.snippet.videoId && it.snippet.videoId !== c.videoId)) return res.json({ ok: false, msg: 'Comment not found on the video' });
         } catch (e) { /* YouTube API down: do not block the user */ }
@@ -97,7 +102,7 @@ module.exports = function (app, opts) {
     res.json({ ok: true, vtoken: vt });
   });
 
-  /* ---------- guard the existing key route (token is used once, only when a key is really issued) ---------- */
+  /* ---------- guard the existing key route ---------- */
   app.post('/api/getkey', json, async (req, res, next) => {
     const c = await getCfg();
     if (!c.enabled || !c.videoId) return next();
@@ -138,4 +143,4 @@ module.exports = function (app, opts) {
     res.json({ ok: true, video: c });
   });
 };
-  
+      
