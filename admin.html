@@ -51,6 +51,12 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
 #lock{max-width:380px;margin:12vh auto 0;text-align:center}
 #lock .logo{font-size:46px;margin-bottom:8px}
 .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+</style>
+<style>
+/* ===== WATCH VIDEO STEP (added) ===== */
+.vprev{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line);margin:0 0 12px}
+.vprev iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.ytl{width:28px;height:20px;flex:none}
 </style></head><body>
 
 <div id="lock" class="card">
@@ -135,6 +141,32 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
     <div class="chips">
       <button class="sm" id="f_exp" style="color:var(--warn)">⏹ Expire all active free keys</button>
       <button class="sm" id="f_del" style="color:var(--bad)">🗑 Delete all free keys</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><svg class="ytl" viewBox="0 0 24 17" role="img" aria-label="YouTube"><rect width="24" height="17" rx="5" fill="#FF0000"/><polygon points="9.75,4.98 15.5,8.5 9.75,12.02" fill="#fff"/></svg> Watch video step <span class="chip" id="v_state" style="margin-left:auto">…</span></h2>
+    <div class="hint">Users must really watch the video (and optionally comment) before they can get a key. Watch time is counted only while playing — skipping ahead does not count.</div>
+    <label class="sw"><span>Watch video step ON</span><input id="v_en" type="checkbox"><i class="t"></i></label>
+    <div class="fl">YouTube video link (or video ID)</div>
+    <input id="v_url" type="text" maxlength="300" placeholder="https://youtu.be/xxxxxxxxxxx">
+    <div class="vprev" id="v_prev" hidden></div>
+    <div class="g2">
+      <div><div class="fl">Seconds to watch (5-600)</div><input id="v_sec" type="number" min="5" max="600"></div>
+      <div><div class="fl">Min comment length</div><input id="v_min" type="number" min="1" max="200"></div>
+    </div>
+    <label class="sw"><span>Comment required</span><input id="v_cm" type="checkbox"><i class="t"></i></label>
+    <div class="hint">Google mode: the comment is posted for real on your video from the user's Google account. Basic mode: user comments on YouTube by hand (cannot be verified).</div>
+    <div class="fl">Step title</div><input id="v_title" type="text" maxlength="40" placeholder="Watch the video">
+    <div class="fl">Text under the title (empty = default)</div><input id="v_hint" type="text" maxlength="100" placeholder="e.g. Watch and comment your favourite mod">
+    <div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
+      <div class="stat"><b id="v_done" style="color:var(--ok)">0</b><span>Completed</span></div>
+      <div class="stat"><b id="v_cmt" style="color:var(--g1)">0</b><span>With comment</span></div>
+    </div>
+    <button class="btn" id="v_save">Save video step</button>
+    <div class="chips" style="margin:10px 0 0">
+      <button class="sm" id="v_open">▶ Open on YouTube</button>
+      <button class="sm" id="v_reset" style="color:var(--warn)">↺ Reset stats</button>
     </div>
   </div>
 
@@ -324,4 +356,44 @@ $('u_save').onclick=async()=>{
 };
 
 if(pass){$('pass').value=pass;unlock()}
+</script>
+<script>
+/* ===== WATCH VIDEO STEP (added — original code above is untouched) ===== */
+(function(){
+const ytId=s=>{s=String(s||'').trim();if(/^[\w-]{11}$/.test(s))return s;const m=s.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/|\/v\/)([\w-]{11})/);return m?m[1]:''};
+let loaded=false,prevId='';
+function preview(){
+  const id=ytId($('v_url').value),p=$('v_prev');
+  if(id===prevId)return;prevId=id;
+  if(!id){p.hidden=true;p.innerHTML='';return}
+  p.innerHTML='<iframe src="https://www.youtube.com/embed/'+id+'?rel=0" allow="encrypted-media;picture-in-picture" allowfullscreen loading="lazy"></iframe>';p.hidden=false;
+}
+function stats(v){const s=v.stats||{};$('v_done').textContent=s.done||0;$('v_cmt').textContent=s.commented||0}
+function chip(v){const c=$('v_state');c.className='chip '+(v.enabled?'ok':'bad');c.textContent=v.enabled?'● ON':'● OFF'}
+function fill(v){
+  $('v_en').checked=!!v.enabled;$('v_url').value=v.videoId?'https://youtu.be/'+v.videoId:'';
+  $('v_sec').value=v.watchSec;$('v_min').value=v.minChars;$('v_cm').checked=!!v.requireComment;
+  $('v_title').value=v.title||'';$('v_hint').value=v.hint||'';
+  stats(v);chip(v);preview();
+}
+async function load(){
+  const r=await call('/api/admin/video');
+  if(!r.ok){const c=$('v_state');c.className='chip bad';c.textContent='⚠ update server (video-step.js)';return}
+  if(!loaded){loaded=true;fill(r.video)}else{stats(r.video);chip(r.video)}
+}
+async function save(msg){
+  const id=ytId($('v_url').value);
+  if($('v_en').checked&&!id){toast('Paste a valid YouTube link first');return false}
+  const r=await call('/api/admin/video','POST',{enabled:$('v_en').checked,video:id,watchSec:$('v_sec').value,minChars:$('v_min').value,requireComment:$('v_cm').checked,title:$('v_title').value,hint:$('v_hint').value});
+  if(!r.ok){toast(r.msg||'Failed');return false}
+  fill(r.video);toast(msg||(r.video.enabled?'Saved · video step ON':'Saved · video step OFF'));return true;
+}
+$('v_url').addEventListener('input',()=>{clearTimeout(preview.t);preview.t=setTimeout(preview,400)});
+$('v_save').onclick=()=>save('✓ Video step saved');
+$('v_en').onchange=async()=>{const want=$('v_en').checked;if(!(await save())){$('v_en').checked=!want}};
+$('v_open').onclick=()=>{const id=ytId($('v_url').value);id?window.open('https://www.youtube.com/watch?v='+id,'_blank'):toast('No video link')};
+$('v_reset').onclick=async()=>{if(!confirm('Reset video step stats?'))return;const r=await call('/api/admin/video/reset-stats','POST');if(r.ok){stats(r.video);toast('Stats reset')}else toast(r.msg)};
+
+const w=setInterval(()=>{if(!$('app').hidden){clearInterval(w);load();setInterval(()=>{if(!document.hidden&&!$('app').hidden)load()},8000)}},500);
+})();
 </script></body></html>

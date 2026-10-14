@@ -66,6 +66,29 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
 .warn{font-size:12px;color:#fbbf24;margin-top:12px}
 .notice{margin:0 0 14px;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.45;color:#ffe9a8;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.38);text-align:center}
 [hidden]{display:none!important}
+</style>
+<style>
+/* ===== WATCH VIDEO STEP (added) ===== */
+#st1 .stx b:before{content:"";display:inline-block;width:21px;height:15px;margin-right:7px;vertical-align:-2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 17'%3E%3Crect width='24' height='17' rx='5' fill='%23FF0000'/%3E%3Cpolygon points='9.75,4.98 15.5,8.5 9.75,12.02' fill='%23fff'/%3E%3C/svg%3E") center/contain no-repeat}
+.vidbox{border-radius:18px;padding:13px 12px;margin-bottom:11px;background:rgba(255,255,255,.055);border:1px solid var(--line);transition:.2s}
+.vidbox.done{border-color:rgba(74,222,128,.5);background:rgba(74,222,128,.07)}
+.vhead{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+.vhead svg{flex:none;width:42px;height:30px;filter:drop-shadow(0 4px 10px rgba(255,0,0,.4))}
+.vhead .stx{flex:1;min-width:0}.vhead b{display:block;font-size:14px}.vhead span{font-size:12px;color:var(--mut)}
+.vwrap{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)}
+.vwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vlock{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;background:rgba(6,9,20,.86);font-size:13px;font-weight:700;color:#cbd3f5;text-align:center;padding:10px}
+.vprog{height:6px;border-radius:9px;background:rgba(255,255,255,.1);margin-top:10px;overflow:hidden}
+.vprog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff0033,#ff7a7a);transition:width .4s linear}
+.vstat{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);margin-top:7px}
+.vmsg{font-size:12px;margin-top:8px;color:var(--mut);line-height:1.45;text-align:center}.vmsg:empty{display:none}
+.vmsg.bad{color:var(--bad)}.vmsg.ok{color:var(--ok)}
+.vcm{margin-top:12px}
+.vcm textarea{width:100%;min-height:66px;resize:none;border-radius:13px;border:1px solid var(--line);background:rgba(8,12,28,.7);color:var(--txt);font:inherit;font-size:14px;padding:10px 12px;outline:none}
+.vcm textarea:focus{border-color:#ff4d4d}
+.vcm .r2{display:flex;gap:8px;margin-top:8px}
+.vbtn{flex:1;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:800;font-size:13px;color:#fff;cursor:pointer;background:#e62117;box-shadow:0 6px 18px rgba(230,33,23,.35)}
+.vbtn.alt{background:rgba(255,255,255,.12);box-shadow:none}.vbtn:disabled{opacity:.5}
 </style></head><body>
 <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
 <canvas id="fx"></canvas>
@@ -82,6 +105,21 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
       <div class="num" id="n1">1</div>
       <div class="stx"><b>Subscribe on YouTube</b><span id="chn">@anubhab_mods</span></div>
       <button class="yt" id="sub">▶ SUBSCRIBE</button>
+    </div>
+    <div class="vidbox" id="vid" hidden>
+      <div class="vhead">
+        <svg viewBox="0 0 24 17" role="img" aria-label="YouTube"><rect width="24" height="17" rx="5" fill="#FF0000"/><polygon points="9.75,4.98 15.5,8.5 9.75,12.02" fill="#fff"/></svg>
+        <div class="stx"><b id="vtitle">Watch the video</b><span id="vsub">Watch to continue</span></div>
+      </div>
+      <div class="vwrap"><div id="vplayer"></div><div class="vlock" id="vlock"><span style="font-size:22px">🔒</span><span>Subscribe first to unlock the video</span></div></div>
+      <div class="vprog"><i id="vbar"></i></div>
+      <div class="vstat"><span id="vst">Press ▶ play to start</span><span id="vct">0s</span></div>
+      <div class="vmsg" id="vmsg"></div>
+      <div class="vcm" id="vcm" hidden>
+        <textarea id="vtxt" maxlength="300" placeholder="Write your comment…"></textarea>
+        <div class="r2"><button class="vbtn" id="vpost">💬 POST COMMENT</button></div>
+        <div class="r2"><button class="vbtn alt" id="vdone" hidden>✓ I COMMENTED</button></div>
+      </div>
     </div>
     <div class="stepcard dim" id="st2">
       <div class="num">2</div>
@@ -278,5 +316,213 @@ function confetti(){
     const t=await api('/api/getkey/ticket');if(t.ok){ticket=t.ticket;ticketAt=Date.now()}
   }
   updateGen();
+})();
+</script>
+<script>
+/* ===== WATCH VIDEO STEP (added — original code above is untouched) ===== */
+(function(){
+const V={on:false,cfg:null,sid:'',vtoken:'',watched:0,need:30,dur:0,started:false,watchDone:false,done:false,commented:false,commentId:'',player:null,ready:false,creating:false,lastT:null,lastNow:0,finishing:false,retryAt:0,posting:false,tc:null,fallback:false,cmShown:false,ct:null};
+const vbox=$('vid');
+const real=()=>mode==='google'&&!!clientId&&!V.fallback;
+function setMsg(t,c){const m=$('vmsg');m.textContent=t||'';m.className='vmsg'+(c?' '+c:'')}
+
+function ui(){
+  const w=Math.min(V.watched,V.need);
+  $('vbar').style.width=(V.need?w/V.need*100:0)+'%';
+  $('vct').textContent=Math.floor(w)+'s / '+V.need+'s';
+  let t;
+  if(V.done)t='✓ Video step completed';
+  else if(V.watchDone&&V.cfg.requireComment&&!V.commented)t='✓ Watched — now write a comment';
+  else if(V.watchDone)t='Saving…';
+  else if(!V.started)t='Press ▶ play to start';
+  else t='Keep watching…';
+  $('vst').textContent=t;
+  vbox.classList.toggle('done',V.done);
+}
+
+/* keeps the GET KEY button locked until the video step is finished */
+function gate(){
+  if(!V.on||V.done||busy||!subAt)return;
+  const b=$('gen'),txt=(V.watchDone&&V.cfg.requireComment&&!V.commented)?'COMMENT FIRST':'WATCH VIDEO FIRST';
+  if(!b.disabled)b.disabled=true;
+  if(b.textContent!==txt)b.textContent=txt;
+  const s=$('s2t'),t2='Finish the video step first';
+  if(s.textContent!==t2)s.textContent=t2;
+  if(!$('st2').classList.contains('dim'))$('st2').classList.add('dim');
+}
+const mo=new MutationObserver(gate);
+['gen','s2t','st2'].forEach(id=>mo.observe($(id),{childList:true,characterData:true,subtree:true,attributes:true}));
+const og=$('gen').onclick;
+$('gen').onclick=function(e){
+  if(V.on&&!V.done){toast('Finish the video step first');return}
+  return og&&og.call(this,e);
+};
+
+/* send the video token with the key request, reset after a key is issued */
+const of=window.fetch.bind(window);
+window.fetch=async function(u,o){
+  const isKey=u===API+'/api/getkey'&&o&&o.method==='POST';
+  if(isKey&&V.on&&V.vtoken){
+    try{const b=JSON.parse(o.body||'{}');b.vtoken=V.vtoken;o=Object.assign({},o,{body:JSON.stringify(b)})}catch(e){}
+  }
+  const r=await of(u,o);
+  if(isKey&&V.on){
+    r.clone().json().then(j=>{
+      if(j&&j.ok)resetVideo();
+      else if(j&&j.needVideo){resetVideo();toast('Watch the video again')}
+    }).catch(()=>{});
+  }
+  return r;
+};
+
+function resetVideo(){
+  Object.assign(V,{sid:'',vtoken:'',watched:0,watchDone:false,done:false,commented:false,commentId:'',started:false,lastT:null,finishing:false,retryAt:0,cmShown:false,posting:false});
+  clearInterval(V.ct);
+  $('vcm').hidden=true;$('vtxt').value='';$('vdone').hidden=true;$('vpost').disabled=false;setMsg('');
+  try{V.player&&V.player.pauseVideo();V.player&&V.player.seekTo(0,true)}catch(e){}
+  ui();
+}
+
+/* ---- YouTube player ---- */
+function loadYT(cb){
+  if(window.YT&&YT.Player){cb();return}
+  const prev=window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady=function(){try{prev&&prev()}catch(e){}cb()};
+  if(!$('ytapi')){
+    const s=document.createElement('script');s.id='ytapi';s.src='https://www.youtube.com/iframe_api';
+    s.onerror=()=>setMsg('Could not load the YouTube player','bad');
+    document.head.appendChild(s);
+  }
+}
+function initPlayer(){
+  if(V.player||V.creating)return;V.creating=true;
+  loadYT(()=>{
+    V.player=new YT.Player('vplayer',{
+      videoId:V.cfg.videoId,width:'100%',height:'100%',
+      playerVars:{rel:0,playsinline:1,modestbranding:1,iv_load_policy:3},
+      events:{onReady:()=>{V.ready=true;ui()},onError:()=>setMsg('This video cannot be played. Please tell the admin.','bad')}
+    });
+  });
+}
+async function startSession(){
+  const r=await api('/api/getkey/video/start','POST',{});
+  if(r.ok)V.sid=r.sid;else{V.started=false;setMsg(r.msg||'Could not start the video step','bad')}
+}
+
+/* real watch time: counts only while playing, tab visible, normal playback (skipping ahead gives nothing) */
+function track(){
+  const p=V.player;if(!V.ready||!p||V.done||V.watchDone)return;
+  let st=-1,t=0;try{st=p.getPlayerState();t=p.getCurrentTime()}catch(e){return}
+  const now=Date.now();
+  if(!V.dur){
+    try{V.dur=Math.floor(p.getDuration()||0)}catch(e){}
+    if(V.dur>0)V.need=Math.max(5,Math.min(V.cfg.watchSec,V.dur-1));
+  }
+  if(st===1){
+    if(!V.started){V.started=true;startSession()}
+    if(V.lastT!==null&&!document.hidden){
+      const dt=(now-V.lastNow)/1000,dv=t-V.lastT;
+      if(dt<=2&&dv>0&&dv<=dt*2.05+.3)V.watched+=dt;
+    }
+  }
+  V.lastT=t;V.lastNow=now;
+  if(V.watched>=V.need){V.watchDone=true;if(V.cfg.requireComment&&!V.commented)showComment()}
+  ui();
+}
+
+/* ---- comment ---- */
+function showComment(){
+  if(V.cmShown)return;V.cmShown=true;
+  $('vcm').hidden=false;
+  $('vpost').textContent=real()?'💬 POST COMMENT ON YOUTUBE':'💬 COPY & OPEN YOUTUBE';
+  setMsg(real()?'Your comment is posted for real on the video, from your own Google account.':'Write a comment, open YouTube, paste it there and post it.');
+}
+function gToken(cb,fail){
+  const go=()=>{
+    if(!V.tc)V.tc=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,scope:'https://www.googleapis.com/auth/youtube.force-ssl',
+      callback:r=>{if(r&&r.access_token)V.tcb(r.access_token);else V.tfail()},
+      error_callback:()=>V.tfail()
+    });
+    V.tcb=cb;V.tfail=fail;
+    V.tc.requestAccessToken({prompt:''});
+  };
+  if(window.google&&google.accounts&&google.accounts.oauth2)return go();
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=go;s.onerror=fail;
+  document.head.appendChild(s);
+}
+$('vpost').onclick=()=>{
+  const txt=$('vtxt').value.trim(),min=Math.max(1,V.cfg.minChars||0);
+  if(txt.length<min){setMsg('Write at least '+min+' characters','bad');return}
+  if(real()){
+    if(V.posting)return;V.posting=true;$('vpost').disabled=true;setMsg('Opening Google…');
+    const fail=()=>{V.posting=false;$('vpost').disabled=false;setMsg('Google sign-in was cancelled','bad')};
+    gToken(async tk=>{
+      setMsg('Posting your comment…');
+      try{
+        const r=await fetch('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet',{method:'POST',headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'},body:JSON.stringify({snippet:{videoId:V.cfg.videoId,topLevelComment:{snippet:{textOriginal:txt}}}})});
+        const j=await r.json().catch(()=>({}));
+        if(r.ok&&j.id){
+          V.commented=true;V.commentId=(j.snippet&&j.snippet.topLevelComment&&j.snippet.topLevelComment.id)||j.id;
+          $('vcm').hidden=true;setMsg('✓ Comment posted on YouTube','ok');ui();
+        }else{
+          V.fallback=true;$('vpost').textContent='💬 COPY & OPEN YOUTUBE';
+          setMsg('Could not post here ('+((j.error&&j.error.message)||'error')+'). Use the button to comment on YouTube directly.','bad');
+        }
+      }catch(e){V.fallback=true;$('vpost').textContent='💬 COPY & OPEN YOUTUBE';setMsg('Network error. Use the button to comment on YouTube directly.','bad')}
+      V.posting=false;$('vpost').disabled=false;
+    },fail);
+  }else{
+    legacyCopy(txt);window.open('https://www.youtube.com/watch?v='+V.cfg.videoId,'_blank');
+    toast('Comment copied — paste it on YouTube');
+    const d=$('vdone');d.hidden=false;d.disabled=true;let s=15;d.textContent='✓ I COMMENTED (15s)';
+    clearInterval(V.ct);
+    V.ct=setInterval(()=>{if(--s<=0){clearInterval(V.ct);d.disabled=false;d.textContent='✓ I COMMENTED'}else d.textContent='✓ I COMMENTED ('+s+'s)'},1000);
+  }
+};
+$('vdone').onclick=()=>{V.commented=true;$('vdone').hidden=true;$('vcm').hidden=true;setMsg('✓ Comment noted','ok');ui()};
+
+/* ---- finish: server checks the watch time and gives a one-time token ---- */
+async function finish(){
+  if(V.finishing||V.done)return;V.finishing=true;
+  const r=await api('/api/getkey/video/done','POST',{sid:V.sid,watched:Math.floor(V.watched),dur:V.dur,commented:V.commented,commentId:V.commentId});
+  V.finishing=false;
+  if(!r.ok){
+    if(/expired|reload/i.test(r.msg||'')){resetVideo();setMsg(r.msg||'Session expired, watch again','bad');return}
+    V.retryAt=Date.now()+4000;setMsg(r.msg||'Could not save, retrying…','bad');return;
+  }
+  V.vtoken=r.vtoken;V.done=true;setMsg('');ui();updateGen();toast('✓ Video step done');
+}
+
+/* ---- boot ---- */
+async function boot(){
+  let r=null;
+  for(let i=0;i<4;i++){
+    r=await api('/api/getkey/video');
+    if(r&&r.ok)break;
+    await sleep(4000);
+  }
+  if(!r||!r.ok||!r.enabled||!r.videoId)return;
+  V.cfg=r;V.on=true;V.need=r.watchSec||30;
+  $('vtitle').textContent=r.title||'Watch the video';
+  $('vsub').textContent=r.hint||(r.requireComment?'Watch the video and leave a comment':'Watch the video to continue');
+  vbox.hidden=false;
+  $('st2').querySelector('.num').textContent='3';
+  const lis=document.querySelectorAll('.steps li');
+  if(lis[0]){
+    const li=document.createElement('li');
+    li.innerHTML='<i></i>Watch the video'+(r.requireComment?' and leave a comment':'');
+    lis[0].after(li);
+    document.querySelectorAll('.steps li').forEach((x,i)=>{x.querySelector('i').textContent=i+1});
+  }
+  ui();gate();
+  setInterval(()=>{
+    $('vlock').hidden=!!subAt;
+    if(subAt&&!V.player)initPlayer();
+    track();gate();
+    if(V.watchDone&&!V.done&&!V.finishing&&(!V.cfg.requireComment||V.commented)&&Date.now()>=V.retryAt)finish();
+  },500);
+}
+boot();
 })();
 </script></body></html>
