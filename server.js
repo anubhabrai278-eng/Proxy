@@ -327,8 +327,9 @@ http.createServer(async (req, res) => {
           if (usedComments.has(c.id)) return send(res, 200, { ok: false, msg: 'This comment was already used' });
           if (c.text.toUpperCase().split(s.code).join('').trim().length < video.minChars) return send(res, 200, { ok: false, msg: 'Write a longer comment (at least ' + video.minChars + ' characters) with your code' });
           if (!c.author) return send(res, 200, { ok: false, msg: 'Could not read your channel from the comment' });
-          let sub;
-          try { sub = await ytSubPublic(c.author); }
+          let sub, isOwner = false;
+          try { isOwner = c.author === await ownChannelId(); } catch (e) {}
+          try { sub = isOwner ? true : await ytSubPublic(c.author); }   // the channel owner cannot subscribe to own channel
           catch (e) { return send(res, 200, { ok: false, msg: 'Could not check subscription yet, retrying… (' + e.message + ')' }); }
           if (sub === false) return send(res, 200, { ok: false, notSubscribed: true, msg: 'You have not subscribed to the channel yet. Subscribe with the same account you commented with.' });
           if (sub === null && SUB_STRICT) return send(res, 200, { ok: false, msg: 'Your subscriptions are private. On YouTube: Settings > Privacy > turn OFF "Keep all my subscriptions private", then try again.' });
