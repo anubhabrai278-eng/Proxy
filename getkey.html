@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://www.youtube.com">
+<link rel="preconnect" href="https://i.ytimg.com">
+<link rel="preconnect" href="https://www.google.com">
+<link rel="dns-prefetch" href="https://googlevideo.com">
+<script id="ytapi" src="https://www.youtube.com/iframe_api" async></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060914">
 <title>Get Free Key - Anubhab Modz</title>
@@ -117,6 +122,7 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
       <div class="vmsg" id="vmsg"></div>
       <div class="vcm" id="vcm" hidden>
         <textarea id="vtxt" maxlength="300" placeholder="Write your comment…"></textarea>
+        <div class="vmsg" id="vcode" style="margin:6px 0;font-weight:700"></div>
         <div class="r2"><button class="vbtn" id="vpost">💬 POST COMMENT</button></div>
         <div class="r2"><button class="vbtn alt" id="vdone" hidden>✓ I COMMENTED</button></div>
       </div>
@@ -442,6 +448,7 @@ function track(){
 function showComment(){
   if(V.cmShown)return;V.cmShown=true;
   $('vcm').hidden=false;
+  $('vcode').textContent=V.cfg.codeMode&&V.code?('Your code: '+V.code+'  (it is added to your comment automatically)'):'';
   $('vpost').textContent=real()?'💬 POST COMMENT ON YOUTUBE':'💬 COPY & OPEN YOUTUBE';
   setMsg(real()?'Your comment is posted for real on the video, from your own Google account.':(V.cfg.codeMode?('👍 Open YouTube, LIKE the video and post a comment. Your code '+(V.code||'')+' is added to your comment automatically.'):'Write a comment, open YouTube, paste it there and post it.'));
 }
@@ -527,6 +534,7 @@ async function boot(){
     document.querySelectorAll('.steps li').forEach((x,i)=>{x.querySelector('i').textContent=i+1});
   }
   ui();gate();
+  initPlayer();   // build the player right away (it stays locked until subscribe) so the video is ready when unlocked
   setInterval(()=>{
     $('vlock').hidden=!!subAt;
     if(subAt&&!V.player)initPlayer();
