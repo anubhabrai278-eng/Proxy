@@ -506,8 +506,8 @@ async function finish(){
   if(!r.ok){
     if(/expired|reload/i.test(r.msg||'')){resetVideo();setMsg(r.msg||'Session expired, watch again','bad');return}
     V.tries++;
-    if(V.cfg.codeMode&&V.tries>=5){V.tries=0;V.commented=false;V.cmShown=true;$('vcm').hidden=false;const d=$('vdone');d.hidden=false;d.disabled=false;d.textContent='✓ I LIKED & COMMENTED';setMsg((r.msg||'Not verified')+' Fix it, then press the button again.','bad');return}
-    V.retryAt=Date.now()+(V.cfg.codeMode?6000:4000);setMsg(r.msg||'Could not save, retrying…','bad');return;
+    if(V.cfg.codeMode&&(V.tries>=4||r.quota)){V.tries=0;V.commented=false;V.cmShown=true;$('vcm').hidden=false;const d=$('vdone');d.hidden=false;d.disabled=false;d.textContent='✓ I LIKED & COMMENTED';setMsg(r.quota?(r.msg||'Try again later'):(r.msg||'Not verified')+' Fix it, then press the button again.','bad');return}
+    V.retryAt=Date.now()+(V.cfg.codeMode?8000:4000);setMsg(r.msg||'Could not save, retrying…','bad');return;
   }
   V.vtoken=r.vtoken;V.done=true;
   if(r.pass){V.pass=r.pass;V.passExp=Date.now()+(r.passLeft||0);try{localStorage.setItem('am_pass',r.pass)}catch(e){}}

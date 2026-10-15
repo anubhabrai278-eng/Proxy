@@ -168,9 +168,34 @@ async function ytGoogle(token) {
   return { subbed: !!(s.j.items && s.j.items.length), channelId };
 }
 // ---- REAL comment check: comment must exist on the video (+ author id, text length) ----
+// ---- YouTube API with several keys: when one key's daily quota is used up, the next key is used ----
+// Render env YT_API_KEY can hold ONE key or MANY keys separated by commas (keys from different Google Cloud projects).
+const ytKeys = YT_API_KEY.split(',').map(x => x.trim()).filter(Boolean);
+const keyDown = {};   // key -> time until it is skipped (quota used up)
+const QUOTA_OPEN = process.env.QUOTA_OPEN === '1';   // 1 => when ALL keys are out of quota, let users pass without the YouTube check
+const QUOTA_MSG = 'YouTube check limit is full for today. Please try again later (it resets around 12:45 PM Nepal time).';
+const isQuota = r => {
+  const e = r.j && r.j.error, rs = e && e.errors && e.errors[0] && e.errors[0].reason;
+  return !r.ok && (rs === 'quotaExceeded' || rs === 'dailyLimitExceeded' || rs === 'rateLimitExceeded' || /quota/i.test((e && e.message) || ''));
+};
+async function ytGet(pathq) {
+  let last = null;
+  for (const k of ytKeys) {
+    if ((keyDown[k] || 0) > Date.now()) continue;
+    const r = await gj(GOOGLE_API + pathq + (pathq.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(k));
+    if (isQuota(r)) { keyDown[k] = Date.now() + 30 * 60000; last = r; continue; }
+    return r;
+  }
+  return last ? { ...last, quota: true } : { ok: false, quota: true, j: { error: { message: 'quota' } } };
+}
+const ytFail = (r, d) => {
+  const m = r.j && r.j.error && r.j.error.message ? String(r.j.error.message).replace(/<[^>]*>/g, '').trim() : '';
+  const e = new Error(m || d); e.quota = !!r.quota; return e;
+};
+
 async function ytComment(id, videoId) {
-  const r = await gj(GOOGLE_API + '/youtube/v3/comments?part=snippet&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(YT_API_KEY));
-  if (!r.ok) throw new Error((r.j.error && r.j.error.message) || 'YouTube API error');
+  const r = await ytGet('/youtube/v3/comments?part=snippet&id=' + encodeURIComponent(id));
+  if (!r.ok) throw ytFail(r, 'YouTube API error');
   const it = r.j.items && r.j.items[0];
   if (!it || !it.snippet) return null;
   if (it.snippet.videoId && it.snippet.videoId !== videoId) return null;
@@ -179,12 +204,14 @@ async function ytComment(id, videoId) {
 }
 
 // ---- NO-LOGIN mode: find the user's comment by its unique code, then check the public subscription list ----
-async function ytFindByCode(code) {
-  const base = GOOGLE_API + '/youtube/v3/commentThreads?part=snippet&videoId=' + encodeURIComponent(video.videoId) +
-    '&maxResults=100&textFormat=plainText&key=' + encodeURIComponent(YT_API_KEY);
-  for (const extra of ['&searchTerms=' + encodeURIComponent(code), '&order=time']) {
-    const r = await gj(base + extra);
-    if (!r.ok) throw new Error((r.j.error && r.j.error.message) || 'YouTube API error');
+// 1 quota unit per search. The wider "latest 100 comments" fallback is only used now and then (deep = true).
+async function ytFindByCode(code, deep) {
+  const base = '/youtube/v3/commentThreads?part=snippet&videoId=' + encodeURIComponent(video.videoId) + '&maxResults=100&textFormat=plainText';
+  const tries = ['&searchTerms=' + encodeURIComponent(code)];
+  if (deep) tries.push('&order=time');
+  for (const extra of tries) {
+    const r = await ytGet(base + extra);
+    if (!r.ok) throw ytFail(r, 'YouTube API error');
     for (const it of r.j.items || []) {
       const tl = it.snippet && it.snippet.topLevelComment;
       const sn = tl && tl.snippet;
@@ -200,8 +227,8 @@ let ownChan = {};
 async function ownChannelId() {
   const h = settings.ytHandle;
   if (!ownChan[h]) {
-    const r = await gj(GOOGLE_API + '/youtube/v3/channels?part=id&forHandle=' + encodeURIComponent(h) + '&key=' + encodeURIComponent(YT_API_KEY));
-    if (!r.ok) throw new Error((r.j.error && r.j.error.message) || 'YouTube API error');
+    const r = await ytGet('/youtube/v3/channels?part=id&forHandle=' + encodeURIComponent(h));
+    if (!r.ok) throw ytFail(r, 'YouTube API error');
     ownChan[h] = r.j.items && r.j.items[0] && r.j.items[0].id;
     if (!ownChan[h]) throw new Error('YouTube channel not found');
   }
@@ -210,13 +237,12 @@ async function ownChannelId() {
 // true = subscribed, false = public list and NOT subscribed, null = user keeps subscriptions private (cannot know)
 async function ytSubPublic(userChannel) {
   const own = await ownChannelId();
-  const r = await gj(GOOGLE_API + '/youtube/v3/subscriptions?part=id&channelId=' + encodeURIComponent(userChannel) +
-    '&forChannelId=' + encodeURIComponent(own) + '&key=' + encodeURIComponent(YT_API_KEY));
+  const r = await ytGet('/youtube/v3/subscriptions?part=id&channelId=' + encodeURIComponent(userChannel) + '&forChannelId=' + encodeURIComponent(own));
   if (r.ok) return !!(r.j.items && r.j.items.length);
   const e = r.j.error || {};
   const reason = e.errors && e.errors[0] && e.errors[0].reason;
-  if (reason === 'subscriptionForbidden' || (e.code === 403 && /subscriptions/i.test(e.message || ''))) return null;
-  throw new Error(e.message || 'YouTube API error');
+  if (!r.quota && (reason === 'subscriptionForbidden' || (e.code === 403 && /subscriptions/i.test(e.message || '')))) return null;
+  throw ytFail(r, 'YouTube API error');
 }
 
 // ---- one video per user: signed pass (valid passHours) ----
@@ -326,6 +352,7 @@ http.createServer(async (req, res) => {
         codeMode: CODE_MODE && !!video.requireComment });
     }
     if (url === '/api/getkey/video/start' && req.method === 'POST') {
+      if (throttled(req)) return send(res, 200, { ok: false, msg: 'Too many requests, wait a minute' });
       if (!video.enabled) return send(res, 200, { ok: false, msg: 'Video step is off' });
       const sid = crypto.randomBytes(16).toString('hex');
       const code = 'AM' + randWord(6);
@@ -333,6 +360,7 @@ http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, sid, code: CODE_MODE && video.requireComment ? code : undefined });
     }
     if (url === '/api/getkey/video/done' && req.method === 'POST') {
+      if (throttled(req)) return send(res, 200, { ok: false, msg: 'Too many requests, wait a minute' });
       const b = await body(req);
       const s = vSessions.get(b.sid);
       if (!s) return send(res, 200, { ok: false, msg: 'Session expired, reload the page' });
@@ -343,20 +371,32 @@ http.createServer(async (req, res) => {
       if (video.requireComment) {
         if (!b.commented) return send(res, 200, { ok: false, msg: 'Please comment on the video' });
         if (CODE_MODE) {
-          let c;
-          try { c = await ytFindByCode(s.code); }
-          catch (e) { return send(res, 200, { ok: false, msg: 'Could not check comments yet, retrying… (' + e.message + ')' }); }
-          if (!c) return send(res, 200, { ok: false, msg: 'Comment with your code not found yet. Post it publicly on the video, then wait a few seconds…' });
-          if (usedComments.has(c.id)) return send(res, 200, { ok: false, msg: 'This comment was already used' });
-          if (c.text.toUpperCase().split(s.code).join('').trim().length < video.minChars) return send(res, 200, { ok: false, msg: 'Write a longer comment (at least ' + video.minChars + ' characters) with your code' });
-          if (!c.author) return send(res, 200, { ok: false, msg: 'Could not read your channel from the comment' });
-          let sub, isOwner = false;
-          try { isOwner = c.author === await ownChannelId(); } catch (e) {}
-          try { sub = isOwner ? true : await ytSubPublic(c.author); }   // the channel owner cannot subscribe to own channel
-          catch (e) { return send(res, 200, { ok: false, msg: 'Could not check subscription yet, retrying… (' + e.message + ')' }); }
-          if (sub === false) return send(res, 200, { ok: false, notSubscribed: true, msg: 'You have not subscribed to the channel yet. Subscribe with the same account you commented with.' });
-          if (sub === null && SUB_STRICT) return send(res, 200, { ok: false, msg: 'Your subscriptions are private. On YouTube: Settings > Privacy > turn OFF "Keep all my subscriptions private", then try again.' });
-          author = c.author; usedComments.add(c.id);
+          if (s.lastCheck && Date.now() - s.lastCheck < 6000) return send(res, 200, { ok: false, msg: 'Checking your comment, please wait…' });
+          s.lastCheck = Date.now(); s.n = (s.n || 0) + 1;
+          let c = null, open = false;
+          try { c = await ytFindByCode(s.code, s.n % 3 === 0); }
+          catch (e) {
+            if (e.quota && QUOTA_OPEN) open = true;
+            else if (e.quota) return send(res, 200, { ok: false, quota: true, msg: QUOTA_MSG });
+            else return send(res, 200, { ok: false, msg: 'Could not check comments yet, retrying… (' + e.message + ')' });
+          }
+          if (!open) {
+            if (!c) return send(res, 200, { ok: false, msg: 'Comment with your code not found yet. Post it publicly on the video, then wait a few seconds…' });
+            if (usedComments.has(c.id)) return send(res, 200, { ok: false, msg: 'This comment was already used' });
+            if (c.text.toUpperCase().split(s.code).join('').trim().length < video.minChars) return send(res, 200, { ok: false, msg: 'Write a longer comment (at least ' + video.minChars + ' characters) with your code' });
+            if (!c.author) return send(res, 200, { ok: false, msg: 'Could not read your channel from the comment' });
+            let sub, isOwner = false;
+            try { isOwner = c.author === await ownChannelId(); } catch (e) {}
+            try { sub = isOwner ? true : await ytSubPublic(c.author); }   // the channel owner cannot subscribe to own channel
+            catch (e) {
+              if (e.quota && QUOTA_OPEN) sub = true;
+              else if (e.quota) return send(res, 200, { ok: false, quota: true, msg: QUOTA_MSG });
+              else return send(res, 200, { ok: false, msg: 'Could not check subscription yet, retrying… (' + e.message + ')' });
+            }
+            if (sub === false) return send(res, 200, { ok: false, notSubscribed: true, msg: 'You have not subscribed to the channel yet. Subscribe with the same account you commented with.' });
+            if (sub === null && SUB_STRICT) return send(res, 200, { ok: false, msg: 'Your subscriptions are private. On YouTube: Settings > Privacy > turn OFF "Keep all my subscriptions private", then try again.' });
+            author = c.author; usedComments.add(c.id);
+          }
         } else if (YT_API_KEY) {
           const cid = String(b.commentId || '').slice(0, 80);
           if (!cid) {
