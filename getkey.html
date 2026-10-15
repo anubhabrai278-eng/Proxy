@@ -270,6 +270,14 @@ $('gen').onclick=()=>{
 $('copy').onclick=()=>copy($('key').textContent);
 
 /* ---- google sign-in (only used to check subscription) ---- */
+function gerrMsg(e){
+  var c=(e&&(e.error||e.type))||'';
+  if(c==='popup_failed_to_open')return 'Popup blocked. Allow popups for this site and try again.';
+  if(c==='popup_closed')return 'Google window was closed before sign-in finished.';
+  if(c==='access_denied')return 'Google: access denied. Allow the YouTube permission, or add this Gmail as a test user.';
+  if(c==='invalid_request'||c==='redirect_uri_mismatch'||c==='origin_mismatch')return 'Google error: '+c+'. Add https://'+location.host+' to Authorised JavaScript origins of the OAuth client.';
+  return 'Google sign-in failed'+(c?': '+c:'')+(e&&e.error_description?' ('+e.error_description+')':'');
+}
 function initGoogle(){
   const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;
   s.onload=()=>{
@@ -277,9 +285,9 @@ function initGoogle(){
       client_id:clientId,scope:'https://www.googleapis.com/auth/youtube.readonly',
       callback:r=>{
         if(r&&r.access_token)doGenerate(r.access_token);
-        else{$('msg').className='msg bad';$('msg').textContent='Google sign-in was cancelled'}
+        else{$('msg').className='msg bad';$('msg').textContent=gerrMsg(r)}
       },
-      error_callback:()=>{$('msg').className='msg bad';$('msg').textContent='Google sign-in was cancelled'}
+      error_callback:e=>{$('msg').className='msg bad';$('msg').textContent=gerrMsg(e)}
     });
   };
   s.onerror=()=>{$('msg').className='msg bad';$('msg').textContent='Could not load Google sign-in'};
@@ -441,8 +449,8 @@ function gToken(cb,fail){
   const go=()=>{
     if(!V.tc)V.tc=google.accounts.oauth2.initTokenClient({
       client_id:clientId,scope:'https://www.googleapis.com/auth/youtube.force-ssl',
-      callback:r=>{if(r&&r.access_token)V.tcb(r.access_token);else V.tfail()},
-      error_callback:()=>V.tfail()
+      callback:r=>{if(r&&r.access_token)V.tcb(r.access_token);else V.tfail(gerrMsg(r))},
+      error_callback:e=>V.tfail(gerrMsg(e))
     });
     V.tcb=cb;V.tfail=fail;
     V.tc.requestAccessToken({prompt:''});
@@ -456,7 +464,7 @@ $('vpost').onclick=()=>{
   if(txt.length<min){setMsg('Write at least '+min+' characters','bad');return}
   if(real()){
     if(V.posting)return;V.posting=true;$('vpost').disabled=true;setMsg('Opening Google…');
-    const fail=()=>{V.posting=false;$('vpost').disabled=false;setMsg('Google sign-in was cancelled','bad')};
+    const fail=m=>{V.posting=false;$('vpost').disabled=false;setMsg(m||'Google sign-in was cancelled','bad')};
     gToken(async tk=>{
       setMsg('Posting your comment…');
       try{
