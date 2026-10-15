@@ -249,7 +249,8 @@ async function doGenerate(token){
   busy=true;const b=$('gen');b.disabled=true;b.textContent='GENERATING…';
   $('msg').textContent='';$('msg').className='msg';$('res').hidden=true;
   const t0=Date.now();startRoll();
-  if(mode==='soft'){   // ticket must be 10s+ old and under 1h old
+  const hasPass=typeof V!=='undefined'&&V&&V.pass;   // user with a pass: no ticket wait, keys come at once
+  if(mode==='soft'&&!hasPass){   // ticket must be 10s+ old and under 1h old
     if(!ticket||Date.now()-ticketAt>3000000){const t=await api('/api/getkey/ticket');if(t.ok){ticket=t.ticket;ticketAt=Date.now()}}
     const need=10500-(Date.now()-ticketAt);if(need>0)await sleep(need);
   }

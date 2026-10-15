@@ -172,7 +172,8 @@ async function ytGoogle(token) {
 // Render env YT_API_KEY can hold ONE key or MANY keys separated by commas (keys from different Google Cloud projects).
 const ytKeys = YT_API_KEY.split(',').map(x => x.trim()).filter(Boolean);
 const keyDown = {};   // key -> time until it is skipped (quota used up)
-const QUOTA_OPEN = process.env.QUOTA_OPEN === '1';   // 1 => when ALL keys are out of quota, let users pass without the YouTube check
+// When ALL keys are out of quota the YouTube check cannot run. Default: let users pass (keys keep working). Set QUOTA_OPEN=0 on Render to block instead.
+const QUOTA_OPEN = process.env.QUOTA_OPEN !== '0';
 const QUOTA_MSG = 'YouTube check limit is full for today. Please try again later (it resets around 12:45 PM Nepal time).';
 const isQuota = r => {
   const e = r.j && r.j.error, rs = e && e.errors && e.errors[0] && e.errors[0].reason;
@@ -437,9 +438,8 @@ http.createServer(async (req, res) => {
       // 0) video step
       let vrec = null;
       if (video.enabled && video.videoId) {
-        vrec = vTokens.get(b.vtoken);
-        if (vrec && Date.now() > vrec.exp) vrec = null;
-        if (!vrec && b.pass) { const pp = readPass(b.pass); if (pp) vrec = { gid: pp.gid, author: '', exp: pp.exp }; }
+        if (b.pass) { const pp = readPass(b.pass); if (pp) vrec = { gid: pp.gid, author: '', exp: pp.exp, pass: true }; }
+        if (!vrec) { vrec = vTokens.get(b.vtoken); if (vrec && Date.now() > vrec.exp) vrec = null; }
         if (!vrec) return send(res, 200, { ok: false, needVideo: true, msg: 'Watch the video first' });
       }
       // 1) YouTube subscribe check
@@ -453,7 +453,7 @@ http.createServer(async (req, res) => {
         gid = r.channelId ? chanGid(r.channelId) : '';
         if (vrec && vrec.gid && vrec.gid[0] === 'c' && gid && vrec.gid !== gid)
           return send(res, 403, { ok: false, needVideo: true, msg: 'The video step was done with another Google account' });
-      } else if (!okTicket(b.ticket)) {
+      } else if (!okTicket(b.ticket) && !(vrec && vrec.pass)) {   // a valid pass already proves the video step, so no waiting for repeat keys
         return send(res, 403, { ok: false, msg: 'Subscribe on YouTube first, then press verify' });
       } else if (vrec && vrec.gid) {
         gid = vrec.gid;   // no-login mode: one commenter channel (or IP) = one identity
