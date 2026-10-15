@@ -382,7 +382,7 @@ window.fetch=async function(u,o){
   const r=await of(u,o);
   if(isKey&&V.on){
     r.clone().json().then(j=>{
-      if(j&&j.ok){if(!V.pass)resetVideo();else V.vtoken=''}
+      if(j&&j.ok){if(!V.pass)resetVideo();else{V.vtoken='';hidePassBox()}}
       else if(j&&j.needVideo){if(V.pass){try{localStorage.removeItem('am_pass')}catch(e){}location.reload();return}resetVideo();toast('Watch the video again')}
     }).catch(()=>{});
   }
@@ -517,6 +517,19 @@ async function finish(){
 
 /* ---- boot ---- */
 function leftTxt(ms){ms=Math.max(0,ms||0);const h=Math.floor(ms/3600000),m=Math.round((ms%3600000)/60000);return h+'h '+m+'m'}
+/* after the pass starts: video + comment box stays hidden, only a small note is shown; keys are unlimited */
+function showPassNote(ms){
+  let n=$('vpassnote');
+  if(!n){n=document.createElement('div');n.className='vmsg ok';n.id='vpassnote';n.style.cssText='margin:10px 0;text-align:center';$('st2').before(n)}
+  n.textContent='✓ Video step done. You can get unlimited keys for '+leftTxt(ms)+'.';
+}
+function hidePassBox(){
+  vbox.hidden=true;showPassNote(V.passExp-Date.now());
+  if(!V.pti)V.pti=setInterval(()=>{
+    if(Date.now()>V.passExp){try{localStorage.removeItem('am_pass')}catch(e){}location.reload()}
+    else showPassNote(V.passExp-Date.now());
+  },30000);
+}
 async function boot(){
   let sp='';try{sp=localStorage.getItem('am_pass')||''}catch(e){}
   let r=null;
@@ -528,12 +541,9 @@ async function boot(){
   if(!r||!r.ok||!r.enabled||!r.videoId){if(sp&&r&&r.ok&&!r.enabled){try{localStorage.removeItem('am_pass')}catch(e){}}return}
   if(r.passed){   /* this user already did the video: no video for passHours, but keys are allowed */
     V.cfg=r;V.on=true;V.done=true;V.pass=sp;V.passExp=Date.now()+(r.left||0);V.need=r.watchSec||30;
-    const note=document.createElement('div');note.className='vmsg ok';note.id='vpassnote';
-    note.style.cssText='margin:10px 0;text-align:center';
-    note.textContent='✓ Video step already done. You can get keys for '+leftTxt(r.left)+'.';
-    $('st2').before(note);          /* no video / comment box for this user */
+    vbox.hidden=true;showPassNote(r.left);   /* no video / comment box for this user */
     updateGen();
-    setInterval(()=>{if(Date.now()>V.passExp){try{localStorage.removeItem('am_pass')}catch(e){}location.reload()}},30000);
+    hidePassBox();
     return;
   }
   if(sp){try{localStorage.removeItem('am_pass')}catch(e){}}   /* pass expired or reset */
