@@ -329,7 +329,7 @@ function confetti(){
 <script>
 /* ===== WATCH VIDEO STEP (added — original code above is untouched) ===== */
 (function(){
-const V={on:false,cfg:null,sid:'',vtoken:'',watched:0,need:30,dur:0,started:false,watchDone:false,done:false,commented:false,commentId:'',player:null,ready:false,creating:false,lastT:null,lastNow:0,finishing:false,retryAt:0,posting:false,tc:null,fallback:false,cmShown:false,ct:null};
+const V={on:false,cfg:null,sid:'',vtoken:'',watched:0,need:30,dur:0,started:false,watchDone:false,done:false,commented:false,commentId:'',player:null,ready:false,creating:false,lastT:null,lastNow:0,finishing:false,retryAt:0,posting:false,tc:null,fallback:false,cmShown:false,ct:null,code:'',tries:0};
 const vbox=$('vid');
 const real=()=>mode==='google'&&!!clientId&&!V.fallback;
 function setMsg(t,c){const m=$('vmsg');m.textContent=t||'';m.className='vmsg'+(c?' '+c:'')}
@@ -384,7 +384,7 @@ window.fetch=async function(u,o){
 };
 
 function resetVideo(){
-  Object.assign(V,{sid:'',vtoken:'',watched:0,watchDone:false,done:false,commented:false,commentId:'',started:false,lastT:null,finishing:false,retryAt:0,cmShown:false,posting:false});
+  Object.assign(V,{sid:'',vtoken:'',watched:0,watchDone:false,done:false,commented:false,commentId:'',started:false,lastT:null,finishing:false,retryAt:0,cmShown:false,posting:false,code:'',tries:0});
   clearInterval(V.ct);
   $('vcm').hidden=true;$('vtxt').value='';$('vdone').hidden=true;$('vpost').disabled=false;setMsg('');
   try{V.player&&V.player.pauseVideo();V.player&&V.player.seekTo(0,true)}catch(e){}
@@ -414,7 +414,7 @@ function initPlayer(){
 }
 async function startSession(){
   const r=await api('/api/getkey/video/start','POST',{});
-  if(r.ok)V.sid=r.sid;else{V.started=false;setMsg(r.msg||'Could not start the video step','bad')}
+  if(r.ok){V.sid=r.sid;V.code=r.code||''}else{V.started=false;setMsg(r.msg||'Could not start the video step','bad')}
 }
 
 /* real watch time: counts only while playing, tab visible, normal playback (skipping ahead gives nothing) */
@@ -443,7 +443,7 @@ function showComment(){
   if(V.cmShown)return;V.cmShown=true;
   $('vcm').hidden=false;
   $('vpost').textContent=real()?'💬 POST COMMENT ON YOUTUBE':'💬 COPY & OPEN YOUTUBE';
-  setMsg(real()?'Your comment is posted for real on the video, from your own Google account.':'Write a comment, open YouTube, paste it there and post it.');
+  setMsg(real()?'Your comment is posted for real on the video, from your own Google account.':(V.cfg.codeMode?('👍 Open YouTube, LIKE the video and post a comment. Your code '+(V.code||'')+' is added to your comment automatically.'):'Write a comment, open YouTube, paste it there and post it.'));
 }
 function gToken(cb,fail){
   const go=()=>{
@@ -481,14 +481,15 @@ $('vpost').onclick=()=>{
       V.posting=false;$('vpost').disabled=false;
     },fail);
   }else{
-    legacyCopy(txt);window.open('https://www.youtube.com/watch?v='+V.cfg.videoId,'_blank');
+    if(V.cfg.codeMode&&!V.code){setMsg('Session not ready. Reload the page and watch again.','bad');return}
+    legacyCopy(V.cfg.codeMode&&V.code?txt+' '+V.code:txt);window.open('https://www.youtube.com/watch?v='+V.cfg.videoId,'_blank');
     toast('Comment copied — paste it on YouTube');
-    const d=$('vdone');d.hidden=false;d.disabled=true;let s=15;d.textContent='✓ I COMMENTED (15s)';
+    const d=$('vdone');d.hidden=false;d.disabled=true;let s=15;const lab=V.cfg.codeMode?'✓ I LIKED & COMMENTED':'✓ I COMMENTED';d.textContent=lab+' (15s)';
     clearInterval(V.ct);
-    V.ct=setInterval(()=>{if(--s<=0){clearInterval(V.ct);d.disabled=false;d.textContent='✓ I COMMENTED'}else d.textContent='✓ I COMMENTED ('+s+'s)'},1000);
+    V.ct=setInterval(()=>{if(--s<=0){clearInterval(V.ct);d.disabled=false;d.textContent=lab}else d.textContent=lab+' ('+s+'s)'},1000);
   }
 };
-$('vdone').onclick=()=>{V.commented=true;$('vdone').hidden=true;$('vcm').hidden=true;setMsg('✓ Comment noted','ok');ui()};
+$('vdone').onclick=()=>{V.commented=true;$('vdone').hidden=true;$('vcm').hidden=true;setMsg(V.cfg.codeMode?'Checking your comment…':'✓ Comment noted','ok');ui()};
 
 /* ---- finish: server checks the watch time and gives a one-time token ---- */
 async function finish(){
@@ -497,7 +498,9 @@ async function finish(){
   V.finishing=false;
   if(!r.ok){
     if(/expired|reload/i.test(r.msg||'')){resetVideo();setMsg(r.msg||'Session expired, watch again','bad');return}
-    V.retryAt=Date.now()+4000;setMsg(r.msg||'Could not save, retrying…','bad');return;
+    V.tries++;
+    if(V.cfg.codeMode&&V.tries>=5){V.tries=0;V.commented=false;V.cmShown=true;$('vcm').hidden=false;const d=$('vdone');d.hidden=false;d.disabled=false;d.textContent='✓ I LIKED & COMMENTED';setMsg((r.msg||'Not verified')+' Fix it, then press the button again.','bad');return}
+    V.retryAt=Date.now()+(V.cfg.codeMode?6000:4000);setMsg(r.msg||'Could not save, retrying…','bad');return;
   }
   V.vtoken=r.vtoken;V.done=true;setMsg('');ui();updateGen();toast('✓ Video step done');
 }
