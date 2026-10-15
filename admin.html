@@ -155,6 +155,8 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
       <div><div class="fl">Seconds to watch (5-600)</div><input id="v_sec" type="number" min="5" max="600"></div>
       <div><div class="fl">Min comment length</div><input id="v_min" type="number" min="1" max="200"></div>
     </div>
+    <div class="fl">Hours before the same user can watch again (1-168, default 20)</div><input id="v_pass" type="number" min="1" max="168">
+    <div class="hint">One user does the video + comment only once. After that they get keys but cannot watch the video until these hours pass.</div>
     <label class="sw"><span>Comment required</span><input id="v_cm" type="checkbox"><i class="t"></i></label>
     <div class="hint">Google mode: the comment is posted for real on your video from the user's Google account. Basic mode: user comments on YouTube by hand (cannot be verified).</div>
     <div class="fl">Step title</div><input id="v_title" type="text" maxlength="40" placeholder="Watch the video">
@@ -167,6 +169,7 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
     <div class="chips" style="margin:10px 0 0">
       <button class="sm" id="v_open">▶ Open on YouTube</button>
       <button class="sm" id="v_reset" style="color:var(--warn)">↺ Reset stats</button>
+      <button class="sm" id="v_rp" style="color:var(--warn)">↺ Reset user passes</button>
     </div>
   </div>
 
@@ -372,7 +375,7 @@ function stats(v){const s=v.stats||{};$('v_done').textContent=s.done||0;$('v_cmt
 function chip(v){const c=$('v_state');c.className='chip '+(v.enabled?'ok':'bad');c.textContent=v.enabled?'● ON':'● OFF'}
 function fill(v){
   $('v_en').checked=!!v.enabled;$('v_url').value=v.videoId?'https://youtu.be/'+v.videoId:'';
-  $('v_sec').value=v.watchSec;$('v_min').value=v.minChars;$('v_cm').checked=!!v.requireComment;
+  $('v_sec').value=v.watchSec;$('v_min').value=v.minChars;$('v_pass').value=v.passHours||20;$('v_cm').checked=!!v.requireComment;
   $('v_title').value=v.title||'';$('v_hint').value=v.hint||'';
   stats(v);chip(v);preview();
 }
@@ -384,7 +387,7 @@ async function load(){
 async function save(msg){
   const id=ytId($('v_url').value);
   if($('v_en').checked&&!id){toast('Paste a valid YouTube link first');return false}
-  const r=await call('/api/admin/video','POST',{enabled:$('v_en').checked,video:id,watchSec:$('v_sec').value,minChars:$('v_min').value,requireComment:$('v_cm').checked,title:$('v_title').value,hint:$('v_hint').value});
+  const r=await call('/api/admin/video','POST',{enabled:$('v_en').checked,video:id,watchSec:$('v_sec').value,minChars:$('v_min').value,passHours:$('v_pass').value,requireComment:$('v_cm').checked,title:$('v_title').value,hint:$('v_hint').value});
   if(!r.ok){toast(r.msg||'Failed');return false}
   fill(r.video);toast(msg||(r.video.enabled?'Saved · video step ON':'Saved · video step OFF'));return true;
 }
@@ -392,6 +395,7 @@ $('v_url').addEventListener('input',()=>{clearTimeout(preview.t);preview.t=setTi
 $('v_save').onclick=()=>save('✓ Video step saved');
 $('v_en').onchange=async()=>{const want=$('v_en').checked;if(!(await save())){$('v_en').checked=!want}};
 $('v_open').onclick=()=>{const id=ytId($('v_url').value);id?window.open('https://www.youtube.com/watch?v='+id,'_blank'):toast('No video link')};
+$('v_rp').onclick=async()=>{if(!confirm('Reset ALL user passes? Everyone must watch the video again.'))return;const r=await call('/api/admin/video/reset-passes','POST');toast(r.ok?'Passes reset':(r.msg||'Failed'))};
 $('v_reset').onclick=async()=>{if(!confirm('Reset video step stats?'))return;const r=await call('/api/admin/video/reset-stats','POST');if(r.ok){stats(r.video);toast('Stats reset')}else toast(r.msg)};
 
 const w=setInterval(()=>{if(!$('app').hidden){clearInterval(w);load();setInterval(()=>{if(!document.hidden&&!$('app').hidden)load()},8000)}},500);

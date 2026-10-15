@@ -335,7 +335,7 @@ function confetti(){
 <script>
 /* ===== WATCH VIDEO STEP (added — original code above is untouched) ===== */
 (function(){
-const V={on:false,cfg:null,sid:'',vtoken:'',watched:0,need:30,dur:0,started:false,watchDone:false,done:false,commented:false,commentId:'',player:null,ready:false,creating:false,lastT:null,lastNow:0,finishing:false,retryAt:0,posting:false,tc:null,fallback:false,cmShown:false,ct:null,code:'',tries:0};
+const V={on:false,cfg:null,sid:'',vtoken:'',watched:0,need:30,dur:0,started:false,watchDone:false,done:false,commented:false,commentId:'',player:null,ready:false,creating:false,lastT:null,lastNow:0,finishing:false,retryAt:0,posting:false,tc:null,fallback:false,cmShown:false,ct:null,code:'',tries:0,pass:'',passExp:0};
 const vbox=$('vid');
 const real=()=>mode==='google'&&!!clientId&&!V.fallback;
 function setMsg(t,c){const m=$('vmsg');m.textContent=t||'';m.className='vmsg'+(c?' '+c:'')}
@@ -376,14 +376,14 @@ $('gen').onclick=function(e){
 const of=window.fetch.bind(window);
 window.fetch=async function(u,o){
   const isKey=u===API+'/api/getkey'&&o&&o.method==='POST';
-  if(isKey&&V.on&&V.vtoken){
-    try{const b=JSON.parse(o.body||'{}');b.vtoken=V.vtoken;o=Object.assign({},o,{body:JSON.stringify(b)})}catch(e){}
+  if(isKey&&V.on&&(V.vtoken||V.pass)){
+    try{const b=JSON.parse(o.body||'{}');if(V.vtoken)b.vtoken=V.vtoken;if(V.pass)b.pass=V.pass;o=Object.assign({},o,{body:JSON.stringify(b)})}catch(e){}
   }
   const r=await of(u,o);
   if(isKey&&V.on){
     r.clone().json().then(j=>{
-      if(j&&j.ok)resetVideo();
-      else if(j&&j.needVideo){resetVideo();toast('Watch the video again')}
+      if(j&&j.ok){if(!V.pass)resetVideo();else V.vtoken=''}
+      else if(j&&j.needVideo){if(V.pass){try{localStorage.removeItem('am_pass')}catch(e){}location.reload();return}resetVideo();toast('Watch the video again')}
     }).catch(()=>{});
   }
   return r;
@@ -509,18 +509,34 @@ async function finish(){
     if(V.cfg.codeMode&&V.tries>=5){V.tries=0;V.commented=false;V.cmShown=true;$('vcm').hidden=false;const d=$('vdone');d.hidden=false;d.disabled=false;d.textContent='✓ I LIKED & COMMENTED';setMsg((r.msg||'Not verified')+' Fix it, then press the button again.','bad');return}
     V.retryAt=Date.now()+(V.cfg.codeMode?6000:4000);setMsg(r.msg||'Could not save, retrying…','bad');return;
   }
-  V.vtoken=r.vtoken;V.done=true;setMsg('');ui();updateGen();toast('✓ Video step done');
+  V.vtoken=r.vtoken;V.done=true;
+  if(r.pass){V.pass=r.pass;V.passExp=Date.now()+(r.passLeft||0);try{localStorage.setItem('am_pass',r.pass)}catch(e){}}
+  setMsg(r.pass?(r.already?'You already finished the video. ':'')+'You can get keys for '+leftTxt(r.passLeft)+'. The video unlocks again after that.':'','ok');
+  ui();updateGen();toast('✓ Video step done');
 }
 
 /* ---- boot ---- */
+function leftTxt(ms){ms=Math.max(0,ms||0);const h=Math.floor(ms/3600000),m=Math.round((ms%3600000)/60000);return h+'h '+m+'m'}
 async function boot(){
+  let sp='';try{sp=localStorage.getItem('am_pass')||''}catch(e){}
   let r=null;
   for(let i=0;i<4;i++){
-    r=await api('/api/getkey/video');
+    r=await api('/api/getkey/video'+(sp?'?pass='+encodeURIComponent(sp):''));
     if(r&&r.ok)break;
     await sleep(4000);
   }
-  if(!r||!r.ok||!r.enabled||!r.videoId)return;
+  if(!r||!r.ok||!r.enabled||!r.videoId){if(sp&&r&&r.ok&&!r.enabled){try{localStorage.removeItem('am_pass')}catch(e){}}return}
+  if(r.passed){   /* this user already did the video: no video for passHours, but keys are allowed */
+    V.cfg=r;V.on=true;V.done=true;V.pass=sp;V.passExp=Date.now()+(r.left||0);V.need=r.watchSec||30;
+    $('vtitle').textContent=r.title||'Watch the video';$('vsub').textContent='Video step already done';
+    vbox.hidden=false;$('vplayer').parentNode.hidden=true;
+    ui();$('vbar').style.width='100%';$('vct').textContent='';
+    setMsg('✓ You can get keys for '+leftTxt(r.left)+'. The video unlocks again after that.','ok');
+    updateGen();
+    setInterval(()=>{if(Date.now()>V.passExp){try{localStorage.removeItem('am_pass')}catch(e){}location.reload()}},30000);
+    return;
+  }
+  if(sp){try{localStorage.removeItem('am_pass')}catch(e){}}   /* pass expired or reset */
   V.cfg=r;V.on=true;V.need=r.watchSec||30;
   $('vtitle').textContent=r.title||'Watch the video';
   $('vsub').textContent=r.hint||(r.requireComment?'Watch the video and leave a comment':'Watch the video to continue');

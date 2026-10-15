@@ -50,8 +50,9 @@ let update = {
   message: 'A new update is available. Tap UPDATE to open our WhatsApp channel.',
   link: 'https://whatsapp.com/channel/0029Vb7xr5tBVJl3HJkMri3P'
 };
-const VDEF = { enabled: false, videoId: '', watchSec: 30, requireComment: false, minChars: 5, title: 'Watch the video', hint: '', stats: { done: 0, commented: 0 } };
+const VDEF = { enabled: false, videoId: '', watchSec: 30, passHours: 20, requireComment: false, minChars: 5, title: 'Watch the video', hint: '', stats: { done: 0, commented: 0 } };
 let video = { ...VDEF, stats: { ...VDEF.stats } };
+let passes = {};   // gid -> pass expiry (ms). One video+comment per user, then a pass for passHours: keys yes, video no.
 
 // ---- Firebase REST ----
 async function fb(p, method, data) {
@@ -79,6 +80,7 @@ async function load() {
     const st = await fb('/settings'); if (st) settings = { ...settings, ...st };
     const vd = await fb('/video');
     if (vd) { video = { ...VDEF, ...vd }; video.stats = { ...VDEF.stats, ...(vd.stats || {}) }; }
+    passes = (await fb('/passes')) || {};
     store.loaded = true; store.error = '';
   } catch (e) { store.error = 'Load failed: ' + e.message; console.error('load failed', e.message); }
 }
@@ -217,6 +219,22 @@ async function ytSubPublic(userChannel) {
   throw new Error(e.message || 'YouTube API error');
 }
 
+// ---- one video per user: signed pass (valid passHours) ----
+const chanGid = ch => 'c' + sha('g' + ch);          // identity from the commenter's YouTube channel
+const ipGid = req => 'i' + ipHash(req);             // fallback identity (no comment) = IP
+const pSecret = () => 'pass:' + ADMIN_PASS;
+const passSig = t => crypto.createHmac('sha256', pSecret()).update(t).digest('hex').slice(0, 24);
+const mkPass = (gid, exp) => { const t = gid + '.' + exp; return t + '.' + passSig(t); };
+function readPass(tok) {
+  const a = String(tok || '').split('.');
+  if (a.length !== 3) return null;
+  const t = a[0] + '.' + a[1], want = passSig(t);
+  if (a[2].length !== want.length || !crypto.timingSafeEqual(Buffer.from(a[2]), Buffer.from(want))) return null;
+  const exp = Number(a[1]);
+  if (!(exp > Date.now()) || passes[a[0]] !== exp) return null;   // expired or reset by admin
+  return { gid: a[0], exp };
+}
+
 // ---- video step state ----
 const vSessions = new Map();   // sid -> {at}
 const vTokens = new Map();     // vtoken -> {exp, author}
@@ -243,6 +261,7 @@ setInterval(async () => {
   for (const [k, v] of Object.entries(keys)) {
     if (v.pub && now > v.exp + 3600000) { try { await fb('/keys/' + k, 'DELETE'); delete keys[k]; } catch (e) {} }
   }
+  for (const [g, e] of Object.entries(passes)) if (e < now - DAY) { delete passes[g]; fb('/passes/' + g, 'DELETE').catch(() => {}); }
 }, 30 * 60 * 1000).unref();
 
 http.createServer(async (req, res) => {
@@ -298,6 +317,10 @@ http.createServer(async (req, res) => {
     // ---- video step (public) ----
     if (url === '/api/getkey/video' && req.method === 'GET') {
       if (!video.enabled || !video.videoId) return send(res, 200, { ok: true, enabled: false });
+      const qs0 = new URLSearchParams(req.url.split('?')[1] || '');
+      const pp = readPass(qs0.get('pass'));
+      if (pp) return send(res, 200, { ok: true, enabled: true, passed: true, left: pp.exp - Date.now(), videoId: video.videoId,
+        watchSec: video.watchSec, requireComment: video.requireComment, title: video.title, hint: video.hint });
       return send(res, 200, { ok: true, enabled: true, videoId: video.videoId, watchSec: video.watchSec,
         requireComment: video.requireComment, minChars: video.minChars, title: video.title, hint: video.hint,
         codeMode: CODE_MODE && !!video.requireComment });
@@ -350,11 +373,18 @@ http.createServer(async (req, res) => {
         }
       }
       vSessions.delete(b.sid);
+      const pgid = author ? chanGid(author) : ipGid(req);
+      let pexp = passes[pgid], already = true;
+      if (!(pexp > Date.now())) {                    // first time (or the last pass ended): new pass
+        already = false;
+        pexp = Date.now() + (video.passHours || 20) * 3600000;
+        passes[pgid] = pexp; fbq('/passes/' + pgid, 'PUT', pexp);
+        video.stats.done++; if (b.commented) video.stats.commented++;
+        fb('/video/stats', 'PUT', video.stats).catch(() => {});
+      }
       const vt = crypto.randomBytes(18).toString('hex');
-      vTokens.set(vt, { exp: Date.now() + 36e5, author });
-      video.stats.done++; if (b.commented) video.stats.commented++;
-      fb('/video/stats', 'PUT', video.stats).catch(() => {});
-      return send(res, 200, { ok: true, vtoken: vt });
+      vTokens.set(vt, { exp: Date.now() + 36e5, author, gid: pgid });
+      return send(res, 200, { ok: true, vtoken: vt, pass: mkPass(pgid, pexp), passLeft: pexp - Date.now(), already });
     }
 
     // ---- get a free key ----
@@ -368,7 +398,9 @@ http.createServer(async (req, res) => {
       let vrec = null;
       if (video.enabled && video.videoId) {
         vrec = vTokens.get(b.vtoken);
-        if (!vrec || Date.now() > vrec.exp) return send(res, 200, { ok: false, needVideo: true, msg: 'Watch the video first' });
+        if (vrec && Date.now() > vrec.exp) vrec = null;
+        if (!vrec && b.pass) { const pp = readPass(b.pass); if (pp) vrec = { gid: pp.gid, author: '', exp: pp.exp }; }
+        if (!vrec) return send(res, 200, { ok: false, needVideo: true, msg: 'Watch the video first' });
       }
       // 1) YouTube subscribe check
       let gid = '';
@@ -378,13 +410,13 @@ http.createServer(async (req, res) => {
         try { r = await ytGoogle(String(b.token)); }
         catch (e) { return send(res, 401, { ok: false, msg: 'Verification failed: ' + e.message }); }
         if (!r.subbed) return send(res, 403, { ok: false, notSubscribed: true, msg: 'You have not subscribed yet. Subscribe to the channel, then try again.' });
-        gid = r.channelId ? sha('g' + r.channelId) : '';
-        if (vrec && vrec.author && r.channelId && vrec.author !== r.channelId)
-          return send(res, 403, { ok: false, needVideo: true, msg: 'The comment was not made with this Google account' });
+        gid = r.channelId ? chanGid(r.channelId) : '';
+        if (vrec && vrec.gid && vrec.gid[0] === 'c' && gid && vrec.gid !== gid)
+          return send(res, 403, { ok: false, needVideo: true, msg: 'The video step was done with another Google account' });
       } else if (!okTicket(b.ticket)) {
         return send(res, 403, { ok: false, msg: 'Subscribe on YouTube first, then press verify' });
-      } else if (vrec && vrec.author) {
-        gid = sha('g' + vrec.author);   // no-login mode: one channel = one identity
+      } else if (vrec && vrec.gid) {
+        gid = vrec.gid;   // no-login mode: one commenter channel (or IP) = one identity
       }
       // 2) daily limit (per IP and per Google channel)
       const ih = ipHash(req);
@@ -474,6 +506,7 @@ http.createServer(async (req, res) => {
         if (id) n.videoId = id;
         n.watchSec = clamp(b.watchSec, 5, 600, n.watchSec);
         n.minChars = clamp(b.minChars, 1, 200, n.minChars);
+        n.passHours = clamp(b.passHours, 1, 168, n.passHours || 20);
         n.requireComment = !!b.requireComment;
         n.title = String(b.title || '').slice(0, 40) || VDEF.title;
         n.hint = String(b.hint || '').slice(0, 100);
@@ -481,6 +514,11 @@ http.createServer(async (req, res) => {
         catch (e) { return send(res, 200, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
         video = n;
         return send(res, 200, { ok: true, video });
+      }
+      if (req.method === 'POST' && url === '/api/admin/video/reset-passes') {
+        passes = {};
+        try { await fb('/passes', 'DELETE'); } catch (e) { return send(res, 200, { ok: false, msg: 'Firebase save failed: ' + e.message }); }
+        return send(res, 200, { ok: true });
       }
       if (req.method === 'POST' && url === '/api/admin/video/reset-stats') {
         video.stats = { done: 0, commented: 0 };
