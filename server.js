@@ -50,7 +50,7 @@ let update = {
   message: 'A new update is available. Tap UPDATE to open our WhatsApp channel.',
   link: 'https://whatsapp.com/channel/0029Vb7xr5tBVJl3HJkMri3P'
 };
-const VDEF = { enabled: false, videoId: '', watchSec: 30, passHours: 20, requireComment: false, minChars: 5, title: 'Watch the video', hint: '', stats: { done: 0, commented: 0 } };
+const VDEF = { enabled: false, videoId: '', watchSec: 30, passHours: 19, requireComment: false, minChars: 5, title: 'Watch the video', hint: '', stats: { done: 0, commented: 0 } };
 let video = { ...VDEF, stats: { ...VDEF.stats } };
 let passes = {};   // gid -> pass expiry (ms). One video+comment per user, then a pass for passHours: keys yes, video no.
 
@@ -417,7 +417,7 @@ http.createServer(async (req, res) => {
       let pexp = passes[pgid], already = true;
       if (!(pexp > Date.now())) {                    // first time (or the last pass ended): new pass
         already = false;
-        pexp = Date.now() + (video.passHours || 20) * 3600000;
+        pexp = Date.now() + (video.passHours || 19) * 3600000;
         passes[pgid] = pexp; fbq('/passes/' + pgid, 'PUT', pexp);
         video.stats.done++; if (b.commented) video.stats.commented++;
         fb('/video/stats', 'PUT', video.stats).catch(() => {});
@@ -546,7 +546,7 @@ http.createServer(async (req, res) => {
         if (id) n.videoId = id;
         n.watchSec = clamp(b.watchSec, 5, 600, n.watchSec);
         n.minChars = clamp(b.minChars, 1, 200, n.minChars);
-        n.passHours = clamp(b.passHours, 1, 168, n.passHours || 20);
+        n.passHours = clamp(b.passHours, 1, 168, n.passHours || 19);
         n.requireComment = !!b.requireComment;
         n.title = String(b.title || '').slice(0, 40) || VDEF.title;
         n.hint = String(b.hint || '').slice(0, 100);

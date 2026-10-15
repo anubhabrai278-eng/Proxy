@@ -155,7 +155,7 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
       <div><div class="fl">Seconds to watch (5-600)</div><input id="v_sec" type="number" min="5" max="600"></div>
       <div><div class="fl">Min comment length</div><input id="v_min" type="number" min="1" max="200"></div>
     </div>
-    <div class="fl">Hours before the same user can watch again (1-168, default 20)</div><input id="v_pass" type="number" min="1" max="168">
+    <div class="fl">Hours before the same user can watch again (1-168, default 19)</div><input id="v_pass" type="number" min="1" max="168">
     <div class="hint">One user does the video + comment only once. After that they get keys but cannot watch the video until these hours pass.</div>
     <label class="sw"><span>Comment required</span><input id="v_cm" type="checkbox"><i class="t"></i></label>
     <div class="hint">Google mode: the comment is posted for real on your video from the user's Google account. Basic mode: user comments on YouTube by hand (cannot be verified).</div>
@@ -375,7 +375,7 @@ function stats(v){const s=v.stats||{};$('v_done').textContent=s.done||0;$('v_cmt
 function chip(v){const c=$('v_state');c.className='chip '+(v.enabled?'ok':'bad');c.textContent=v.enabled?'● ON':'● OFF'}
 function fill(v){
   $('v_en').checked=!!v.enabled;$('v_url').value=v.videoId?'https://youtu.be/'+v.videoId:'';
-  $('v_sec').value=v.watchSec;$('v_min').value=v.minChars;$('v_pass').value=v.passHours||20;$('v_cm').checked=!!v.requireComment;
+  $('v_sec').value=v.watchSec;$('v_min').value=v.minChars;$('v_pass').value=v.passHours||19;$('v_cm').checked=!!v.requireComment;
   $('v_title').value=v.title||'';$('v_hint').value=v.hint||'';
   stats(v);chip(v);preview();
 }

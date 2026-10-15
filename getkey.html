@@ -528,10 +528,10 @@ async function boot(){
   if(!r||!r.ok||!r.enabled||!r.videoId){if(sp&&r&&r.ok&&!r.enabled){try{localStorage.removeItem('am_pass')}catch(e){}}return}
   if(r.passed){   /* this user already did the video: no video for passHours, but keys are allowed */
     V.cfg=r;V.on=true;V.done=true;V.pass=sp;V.passExp=Date.now()+(r.left||0);V.need=r.watchSec||30;
-    $('vtitle').textContent=r.title||'Watch the video';$('vsub').textContent='Video step already done';
-    vbox.hidden=false;$('vplayer').parentNode.hidden=true;
-    ui();$('vbar').style.width='100%';$('vct').textContent='';
-    setMsg('✓ You can get keys for '+leftTxt(r.left)+'. The video unlocks again after that.','ok');
+    const note=document.createElement('div');note.className='vmsg ok';note.id='vpassnote';
+    note.style.cssText='margin:10px 0;text-align:center';
+    note.textContent='✓ Video step already done. You can get keys for '+leftTxt(r.left)+'.';
+    $('st2').before(note);          /* no video / comment box for this user */
     updateGen();
     setInterval(()=>{if(Date.now()>V.passExp){try{localStorage.removeItem('am_pass')}catch(e){}location.reload()}},30000);
     return;
