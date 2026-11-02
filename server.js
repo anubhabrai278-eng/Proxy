@@ -383,7 +383,7 @@ async function geminiCall(model, system, userObj, asText) {
       contents: [{ role: 'user', parts: [{ text: JSON.stringify(userObj) }] }],
       generationConfig: asText ? { temperature: 0.3, maxOutputTokens: 1200 } : { temperature: 0, responseMimeType: 'application/json' }
     }),
-    signal: AbortSignal.timeout(25000)
+    signal: AbortSignal.timeout(12000)
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error((j.error && j.error.message) || ('Gemini HTTP ' + r.status)); e.status = r.status; throw e; }
@@ -409,7 +409,9 @@ async function gemini(system, userObj, asText) {
       if (e.status === 429 || /quota|rate.?limit|exhausted/i.test(e.message || '')) { geminiCool[m] = Date.now() + coolFor(e.message); continue; }   // this model is full -> try the next one
       const gone = e.status === 404 || e.status === 403 || /no longer available|not found|not supported|deprecated/i.test(e.message || '');
       if (gone) { geminiCool[m] = Date.now() + 6 * 3600 * 1000; continue; }
-      break;   // timeout / network / bad key: other models will not help
+      if (e.status === 401 || e.status === 400 && /api key/i.test(e.message || '')) break;   // bad key: other models will not help
+      if (!e.status || e.status >= 500 || /high demand|overloaded|unavailable|timeout|aborted|fetch failed/i.test(e.message || '')) continue;   // busy / slow model -> try the next one
+      break;
     }
   }
   bugLog('gemini', (lastErr && lastErr.message) || 'Gemini failed');
@@ -456,8 +458,10 @@ setInterval(() => { secAnalyze().catch(() => {}); }, SEC_EVERY_MIN * 60000).unre
 // Collects server bugs (Firebase/YouTube/Gemini failures, crashes, request errors), the AI explains cause + fix,
 // and a short message is sent to YOUR Telegram every 10 min (only when something new happened, max 20 per day).
 // ENV: TG_TOKEN (from @BotFather), TG_CHAT_ID (your chat id; alerts go ONLY to this chat)
-const TG_TOKEN = (process.env.TG_TOKEN || '').trim().replace(/^["']|["']$/g, '').replace(/^bot/i, '').trim();
-const TG_CHAT_ID = (process.env.TG_CHAT_ID || '').trim().replace(/^["']|["']$/g, '').trim();
+const TG_TOKEN = (process.env.TG_TOKEN || '').replace(/[\s\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/^TG_TOKEN=/i, '').replace(/^https?:\/\/api\.telegram\.org\/bot/i, '').replace(/^["'`]+|["'`]+$/g, '').replace(/^bot/i, '');
+const TG_TOKEN_OK = /^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(TG_TOKEN);
+const TG_TOKEN_BAD = 'TG_TOKEN format is wrong. Copy the token from BotFather again (123456789:AAF...) and paste it in Render > Environment > TG_TOKEN, then Save and redeploy';
+const TG_CHAT_ID = (process.env.TG_CHAT_ID || '').replace(/[\s\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/^["'`]+|["'`]+$/g, '');
 const TG_API = process.env.TG_API_BASE || 'https://api.telegram.org';
 const bugs = new Map();
 let waSent = [], repSince = Date.now(), repWarned = false;
@@ -476,6 +480,7 @@ process.on('uncaughtException', e => { console.error('uncaughtException', e); bu
 
 async function sendAlert(text) {
   if (!TG_TOKEN || !TG_CHAT_ID) return { ok: false, msg: 'TG_TOKEN / TG_CHAT_ID not set in Render' };
+  if (!TG_TOKEN_OK) return { ok: false, msg: TG_TOKEN_BAD };
   const now = Date.now(); waSent = waSent.filter(t => now - t < DAY);
   if (waSent.length >= 20) return { ok: false, msg: 'Daily Telegram limit (20) reached' };
   let lastMsg = 'Telegram send failed';
@@ -505,6 +510,7 @@ async function sendAlert(text) {
 // Finds your chat id after you send any message to your bot (admin only)
 async function tgFindChatId() {
   if (!TG_TOKEN) return { ok: false, msg: 'TG_TOKEN not set in Render' };
+  if (!TG_TOKEN_OK) return { ok: false, msg: TG_TOKEN_BAD };
   try {
     const r = await fetch(TG_API + '/bot' + TG_TOKEN + '/getUpdates', { signal: AbortSignal.timeout(20000) });
     const j = await r.json().catch(() => ({}));
