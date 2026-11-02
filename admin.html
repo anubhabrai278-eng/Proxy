@@ -184,6 +184,30 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
     <button class="btn" id="u_save">Save update popup</button>
   </div>
 
+  <div class="card" id="sec_card">
+    <h2>🛡️ AI Security <span class="chip" id="sec_state" style="margin-left:auto">…</span></h2>
+    <div class="hint" id="sec_sum"></div>
+    <div id="sec_warn"></div>
+    <div class="chips">
+      <button class="sm" id="sec_run">🤖 Analyze now</button>
+      <button class="sm" id="sec_clear" style="color:var(--bad)">Unblock all</button>
+      <button class="sm" id="sec_wa">📲 Telegram report now</button>
+      <button class="sm" id="sec_tgid">🔎 Find my chat ID</button>
+    </div>
+    <div class="fl">🤖 Ask AI about your server</div>
+    <input id="ai_q" type="text" maxlength="300" placeholder="e.g. aaj key kina kam bhayo?">
+    <button class="sm" id="ai_ask">Ask</button>
+    <div id="ai_ans" class="hint" style="white-space:pre-wrap"></div>
+    <div class="fl">✨ AI notice writer (idea → title + message)</div>
+    <input id="ai_idea" type="text" maxlength="300" placeholder="e.g. new update tonight, download from WhatsApp">
+    <button class="sm" id="ai_note">Write</button>
+    <div id="ai_out" class="hint" style="white-space:pre-wrap"></div>
+    <div class="fl">Recent bugs <span id="sec_wa_state"></span></div>
+    <div id="sec_bugs" class="hint">none</div>
+    <div class="fl">Blocked IPs</div>
+    <div id="sec_blocks" class="hint">none</div>
+  </div>
+
   <div class="card">
     <h2>🔑 All keys <button class="sm" id="refresh" style="margin-left:auto">↻ Refresh</button></h2>
     <input id="search" type="text" placeholder="🔎 Search key or note">
@@ -399,5 +423,28 @@ $('v_rp').onclick=async()=>{if(!confirm('Reset ALL user passes? Everyone must wa
 $('v_reset').onclick=async()=>{if(!confirm('Reset video step stats?'))return;const r=await call('/api/admin/video/reset-stats','POST');if(r.ok){stats(r.video);toast('Stats reset')}else toast(r.msg)};
 
 const w=setInterval(()=>{if(!$('app').hidden){clearInterval(w);load();setInterval(()=>{if(!document.hidden&&!$('app').hidden)load()},8000)}},500);
+})();
+</script><script>
+(function(){
+  const fmt=t=>new Date(t).toLocaleTimeString();
+  async function sec(){
+    if($('app').hidden)return;
+    const r=await call('/api/admin/security');if(!r.ok)return;
+    const c=$('sec_state');c.className='chip '+(r.ai?(r.lastErr?'bad':'ok'):'bad');
+    c.textContent=r.ai?(r.lastErr?'⚠ AI error':'● AI ON'):'● AI OFF (rules only)';
+    $('sec_sum').textContent=(r.summary?'Last review: '+r.summary+' · ':'')+(r.lastErr?'Error: '+r.lastErr:'')+(r.lastRun?' ('+fmt(r.lastRun)+', every '+r.everyMin+' min)':'');
+    $('sec_warn').innerHTML=r.warnings.map(w=>'<div class="hint" style="color:var(--warn)">⚠ '+esc(w)+'</div>').join('');
+    $('sec_wa_state').textContent=r.tg?'(Telegram ON)':'(Telegram OFF: set TG_TOKEN + TG_CHAT_ID)';
+    $('sec_bugs').innerHTML=r.bugs.length?r.bugs.map(b=>'<div style="margin:4px 0;word-break:break-all">['+esc(b.src)+'] '+esc(b.msg)+' ×'+b.n+'</div>').join(''):'none';
+    $('sec_blocks').innerHTML=r.blocks.length?r.blocks.map(b=>'<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><span style="flex:1;word-break:break-all">'+esc(b.ip)+' · '+esc(b.by)+' · '+esc(b.reason)+' · until '+fmt(b.until)+'</span><button class="sm" data-ip="'+esc(b.ip)+'">Unblock</button></div>').join(''):'none';
+  }
+  $('sec_blocks').onclick=async e=>{const ip=e.target.getAttribute&&e.target.getAttribute('data-ip');if(!ip)return;await call('/api/admin/security/unblock','POST',{ip});sec()};
+  $('sec_run').onclick=async()=>{toast('Analyzing…');const r=await call('/api/admin/security/run','POST');toast(r.ok?(r.msg||'Done'):(r.msg||'Failed'));sec()};
+  $('sec_wa').onclick=async()=>{toast('Sending…');const r=await call('/api/admin/security/report','POST');toast(r.msg||(r.ok?'Done':'Failed'))};
+  $('ai_ask').onclick=async()=>{const q=$('ai_q').value.trim();if(!q)return;$('ai_ans').textContent='…';const r=await call('/api/admin/ai/ask','POST',{q});$('ai_ans').textContent=r.ok?r.answer:(r.msg||'Failed')};
+  $('ai_note').onclick=async()=>{const i=$('ai_idea').value.trim();if(!i)return;$('ai_out').textContent='…';const r=await call('/api/admin/ai/notice','POST',{idea:i,lang:'Nepali'});if(!r.ok){$('ai_out').textContent=r.msg||'Failed';return}$('ai_out').textContent=r.title+'\n'+r.message;copy(r.title+'\n'+r.message,'Copied notice')};
+  $('sec_tgid').onclick=async()=>{const r=await call('/api/admin/security/chatid','POST');toast(r.msg||'Failed')};
+  $('sec_clear').onclick=async()=>{if(!confirm('Unblock all IPs?'))return;await call('/api/admin/security/unblock','POST',{all:true});sec()};
+  setInterval(sec,10000);setTimeout(sec,1500);
 })();
 </script></body></html>
