@@ -232,7 +232,7 @@ const $=id=>document.getElementById(id);
 let pass=localStorage.getItem('ap')||'',keys=[],filter='all',qty=1,timer=null;
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2000)}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),/error|failed|not set|limit/i.test(m)?7000:2000)}
 
 async function call(path,method,data){
   try{
