@@ -393,7 +393,7 @@ function preview(){
   const id=ytId($('v_url').value),p=$('v_prev');
   if(id===prevId)return;prevId=id;
   if(!id){p.hidden=true;p.innerHTML='';return}
-  p.innerHTML='<iframe src="https://www.youtube.com/embed/'+id+'?rel=0" allow="encrypted-media;picture-in-picture" allowfullscreen loading="lazy"></iframe>';p.hidden=false;
+  p.innerHTML='<iframe src="https://www.youtube.com/embed/'+id+'?rel=0" allow="encrypted-media;picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>';p.hidden=false;
 }
 function stats(v){const s=v.stats||{};$('v_done').textContent=s.done||0;$('v_cmt').textContent=s.commented||0}
 function chip(v){const c=$('v_state');c.className='chip '+(v.enabled?'ok':'bad');c.textContent=v.enabled?'● ON':'● OFF'}

@@ -96,7 +96,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS'
 };
 function send(res, code, obj, type) {
-  res.writeHead(code, { ...CORS, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Type': type || 'application/json' });
+  res.writeHead(code, { ...CORS, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Content-Type': type || 'application/json' });
   res.end(type ? obj : JSON.stringify(obj));
 }
 function body(req) {
@@ -391,16 +391,25 @@ async function geminiCall(model, system, userObj, asText) {
   if (asText) return String(t || '').slice(0, 1500);
   return JSON.parse(String(t || '{}').replace(/```json|```/g, '').trim());
 }
+const geminiCool = {};   // model -> time until its quota is back (each model has its OWN free quota)
+function coolFor(msg) {
+  const m = /retry in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s/i.exec(String(msg || ''));
+  const sec = m ? (+(m[1] || 0)) * 3600 + (+(m[2] || 0)) * 60 + Math.ceil(+m[3]) : 3600;
+  return Math.min(Math.max(sec, 60), 20 * 3600) * 1000;
+}
 async function gemini(system, userObj, asText) {
-  // tries: last working model -> GEMINI_MODEL -> fallback list. Moves to next model only if the model is gone / not found / not allowed.
-  const list = [...new Set([geminiGood, GEMINI_MODEL, ...GEMINI_FALLBACKS].filter(Boolean))];
+  const now = Date.now();
+  const list = [...new Set([geminiGood, GEMINI_MODEL, ...GEMINI_FALLBACKS].filter(Boolean))].filter(m => !(geminiCool[m] > now));
+  if (!list.length) throw new Error('AI quota is full for today on all models (resets automatically)');
   let lastErr;
   for (const m of list) {
     try { const out = await geminiCall(m, system, userObj, asText); geminiGood = m; return out; }
     catch (e) {
       lastErr = e;
+      if (e.status === 429 || /quota|rate.?limit|exhausted/i.test(e.message || '')) { geminiCool[m] = Date.now() + coolFor(e.message); continue; }   // this model is full -> try the next one
       const gone = e.status === 404 || e.status === 403 || /no longer available|not found|not supported|deprecated/i.test(e.message || '');
-      if (!gone) break;   // quota / network / bad key: other models will not help
+      if (gone) { geminiCool[m] = Date.now() + 6 * 3600 * 1000; continue; }
+      break;   // timeout / network / bad key: other models will not help
     }
   }
   bugLog('gemini', (lastErr && lastErr.message) || 'Gemini failed');
@@ -420,7 +429,7 @@ async function secAnalyze() {
     const win = sec.win; sec.win = new Map(); sec.lastRun = Date.now();
     for (const [ip, b] of sec.blocks) if (Date.now() >= b.until) sec.blocks.delete(ip);
     if (!GEMINI_API_KEY) return { ok: false, msg: 'GEMINI_API_KEY not set' };
-    const rows = [...win].filter(([ip, e]) => e.n >= 5 || e.vf || e.af)
+    const rows = [...win].filter(([ip, e]) => e.vf >= 3 || e.af >= 1 || e.n >= 60)
       .sort((a, b) => (b[1].vf + b[1].af * 2 + b[1].n / 20) - (a[1].vf + a[1].af * 2 + a[1].n / 20)).slice(0, 30);
     if (!rows.length) { sec.lastSummary = 'Nothing to review'; sec.lastErr = ''; return { ok: true, msg: sec.lastSummary }; }
     const idMap = {};
@@ -447,8 +456,8 @@ setInterval(() => { secAnalyze().catch(() => {}); }, SEC_EVERY_MIN * 60000).unre
 // Collects server bugs (Firebase/YouTube/Gemini failures, crashes, request errors), the AI explains cause + fix,
 // and a short message is sent to YOUR Telegram every 10 min (only when something new happened, max 20 per day).
 // ENV: TG_TOKEN (from @BotFather), TG_CHAT_ID (your chat id; alerts go ONLY to this chat)
-const TG_TOKEN = (process.env.TG_TOKEN || '').trim();
-const TG_CHAT_ID = (process.env.TG_CHAT_ID || '').trim();
+const TG_TOKEN = (process.env.TG_TOKEN || '').trim().replace(/^["']|["']$/g, '').replace(/^bot/i, '').trim();
+const TG_CHAT_ID = (process.env.TG_CHAT_ID || '').trim().replace(/^["']|["']$/g, '').trim();
 const TG_API = process.env.TG_API_BASE || 'https://api.telegram.org';
 const bugs = new Map();
 let waSent = [], repSince = Date.now(), repWarned = false;
@@ -481,7 +490,7 @@ async function sendAlert(text) {
       if (r.ok && j.ok) { waSent.push(Date.now()); return { ok: true, msg: 'Sent to Telegram' }; }
       lastMsg = 'Telegram error ' + r.status + ': ' + String(j.description || 'unknown').slice(0, 120);
       if (/chat not found/i.test(lastMsg)) lastMsg += ' -> open your bot, press Start, then use "Find my chat ID" and put it in TG_CHAT_ID';
-      else if (/unauthorized/i.test(lastMsg)) lastMsg += ' -> TG_TOKEN is wrong';
+      else if (/unauthorized|not found/i.test(lastMsg) && r.status !== 400) lastMsg += ' -> TG_TOKEN is wrong. In Render set TG_TOKEN exactly as BotFather gave it (like 123456789:AAF...), no "bot" word, no quotes, no spaces';
       const wait = j.parameters && j.parameters.retry_after;
       if (r.status === 429 && wait && wait <= 20 && attempt === 0) { await new Promise(x => setTimeout(x, wait * 1000 + 500)); continue; }
       break;
