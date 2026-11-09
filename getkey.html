@@ -129,7 +129,7 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
     </div>
     <div class="stepcard dim" id="st2">
       <div class="num">2</div>
-      <div class="stx"><b>Get your random-time key</b><span id="s2t">Subscribe first, then continue</span></div>
+      <div class="stx"><b id="s2h">Get your random-time key</b><span id="s2t">Subscribe first, then continue</span></div>
     </div>
     <div class="slot" id="slot">
       <div class="lbl">YOUR RANDOM TIME</div>
@@ -156,12 +156,20 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
     <div class="warn">⚠ Copy your key now. It is not saved on this website.</div>
   </div>
 
+  <div class="res" id="dlres" hidden>
+    <div class="got" id="dlgot">🎉 Your download is <b>ready</b></div>
+    <div id="dlname" style="font-weight:800;font-size:15px;margin:0 0 12px;word-break:break-word" hidden></div>
+    <a class="btn" id="dla" href="#" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;text-align:center">⬇ DOWNLOAD NOW</a>
+    <div class="keybox" style="margin-top:12px"><code id="dlurl" style="font-size:12px;font-weight:600"></code><button class="cp" id="dlcopy">📋 COPY</button></div>
+    <div class="warn">If the download does not start, press the button again.</div>
+  </div>
+
   <ul class="steps">
     <li><i>1</i>Subscribe to the YouTube channel, then verify</li>
-    <li><i>2</i>Copy your key, open the app and paste it</li>
-    <li><i>3</i>Tap LOGIN. The key stops when the timer ends</li>
+    <li><i>2</i><span id="stp2t">Copy your key, open the app and paste it</span></li>
+    <li><i>3</i><span id="stp3t">Tap LOGIN. The key stops when the timer ends</span></li>
   </ul>
-  <div class="foot">One free key per user · works on one device</div>
+  <div class="foot" id="foot">One free key per user · works on one device</div>
 </div>
 <div id="toast"></div>
 
@@ -170,13 +178,13 @@ const API='https://proxy-90bc.onrender.com';
 const $=id=>document.getElementById(id);
 let exp=0,total=1,tick=null,minMin=60,maxMin=180;
 let mode='soft',clientId='',ytUrl='https://youtube.com/@anubhab_mods?si=NoIqFEuDevSmPk3L',ticket='',ticketAt=0,subAt=0,tokenClient=null,busy=false;
-let SOFT_WAIT=15000;
+let SOFT_WAIT=15000,rmode='key',dlLabel='DOWNLOAD NOW',dlName='';
 
 const pad=n=>String(n).padStart(2,'0');
 const fmtMin=m=>m<60?m+'m':(m%60?Math.floor(m/60)+'h '+pad(m%60)+'m':Math.floor(m/60)+'h');
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),1800)}
 function legacyCopy(t){const a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');a.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(a);a.focus();a.select();a.setSelectionRange(0,t.length);let ok=false;try{ok=document.execCommand('copy')}catch(e){}a.remove();return ok}
-async function copy(t){let ok=false;try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);ok=true}}catch(e){}if(!ok)ok=legacyCopy(t);if(ok)toast('✓ Key copied');else window.prompt('Copy your key:',t)}
+async function copy(t,lb){let ok=false;try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);ok=true}}catch(e){}if(!ok)ok=legacyCopy(t);if(ok)toast('✓ '+(lb||'Key copied'));else window.prompt('Copy your key:',t)}
 async function api(path,method,data){
   try{
     const r=await fetch(API+path,{method:method||'GET',headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});
@@ -200,8 +208,9 @@ function updateGen(){
   }
   $('st2').classList.remove('dim');
   b.disabled=false;
-  b.textContent=mode==='google'?'VERIFY WITH GOOGLE & GET KEY':'GET MY KEY';
-  $('s2t').textContent=mode==='google'?'Sign in with Google to confirm your subscription':'Press the button to get your key';
+  const dl=rmode==='download';
+  b.textContent=mode==='google'?(dl?'VERIFY WITH GOOGLE & GET LINK':'VERIFY WITH GOOGLE & GET KEY'):(dl?'GET DOWNLOAD LINK':'GET MY KEY');
+  $('s2t').textContent=mode==='google'?'Sign in with Google to confirm your subscription':(dl?'Press the button to get your download link':'Press the button to get your key');
 }
 setInterval(updateGen,500);
 $('sub').onclick=()=>{
@@ -240,7 +249,7 @@ function show(key,e,t){
 /* ---- slot roll ---- */
 function rollText(){const steps=Math.floor((maxMin-minMin)/5);return fmtMin(minMin+5*Math.floor(Math.random()*(steps+1)))}
 let rollT=null;
-function startRoll(){const s=$('slot');s.hidden=false;s.classList.add('spin');$('sh').textContent='Rolling your lucky time…';rollT=setInterval(()=>{$('sv').textContent=rollText()},70)}
+function startRoll(){if(rmode==='download')return;const s=$('slot');s.hidden=false;s.classList.add('spin');$('sh').textContent='Rolling your lucky time…';rollT=setInterval(()=>{$('sv').textContent=rollText()},70)}
 function stopRoll(){clearInterval(rollT);$('slot').classList.remove('spin')}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -265,7 +274,26 @@ async function doGenerate(token){
     if(r.notSubscribed){$('sub').classList.add('pulse');$('st1').classList.remove('done');$('n1').textContent='1'}
     updateGen();return;
   }
+  if(r.download){showDownload(r);updateGen();return}
   show(r.key,r.exp,r.total);updateGen();
+}
+/* ---- download result (download mode) ---- */
+function showDownload(r){
+  if(!/^https?:\/\//i.test(r.url||'')){$('msg').className='msg bad';$('msg').textContent='Download link is not valid';return}
+  const a=$('dla');a.href=r.url;a.textContent='⬇ '+(r.label||dlLabel);
+  const nm=r.name||dlName;$('dlname').textContent=nm||'';$('dlname').hidden=!nm;
+  $('dlurl').textContent=r.url;
+  $('dlres').hidden=false;$('pick').hidden=true;$('msg').textContent='';confetti();
+}
+$('dlcopy').onclick=()=>copy($('dlurl').textContent,'Link copied');
+function applyRMode(){
+  if(rmode!=='download')return;
+  $('tag').textContent='⬇ Free download';$('slot').hidden=true;
+  $('s2h').textContent='Get your download link';
+  $('stp2t').textContent='Press the button to get your download link';
+  $('stp3t').textContent='Tap DOWNLOAD and install the app';
+  $('foot').textContent='Free download · verify once to unlock';
+  document.title=document.title.replace('Get Free Key','Download');
 }
 $('gen').onclick=()=>{
   if(busy)return;
@@ -321,6 +349,7 @@ function confetti(){
   if(r.notice){$('notice').textContent='📢 '+r.notice;$('notice').hidden=false}
   if(r.ytHandle)$('chn').textContent=r.ytHandle;
   if(r.waitSec)SOFT_WAIT=r.waitSec*1000;
+  rmode=r.resultMode==='download'?'download':'key';dlLabel=r.dlLabel||dlLabel;dlName=r.dlName||'';applyRMode();
   if(r.enabled===false){$('pick').hidden=true;$('msg').className='msg bad';$('msg').textContent=r.closedMsg||'Free keys are closed right now.';return}
   mode=r.mode;clientId=r.clientId||'';
   $('sub').classList.add('pulse');

@@ -45,7 +45,8 @@ let settings = {
   freeEnabled: true, minMin: 60, maxMin: 180, freeDevices: 1, dailyLimit: 0, waitSec: 15,
   ytUrl: YT_URL, ytHandle: YT_HANDLE,
   title: 'ANUBHAB MODZ', subtitle: 'Free access key generator', notice: '',
-  closedMsg: 'Free keys are closed right now.'
+  closedMsg: 'Free keys are closed right now.',
+  resultMode: 'key', dlUrl: '', dlLabel: 'DOWNLOAD NOW', dlName: ''   // resultMode: 'key' = key generator, 'download' = download link (same subscribe/video/comment steps)
 };
 let update = {
   enabled: false, latest: 0, title: 'Update Available',
@@ -556,6 +557,7 @@ let lastDaily = '';
 function chatPrompt() {
   const live = 'LIVE STATUS: free keys are ' + (settings.freeEnabled ? 'OPEN' : 'CLOSED (' + settings.closedMsg + ')') + '. Free key time: ' + settings.minMin + '-' + settings.maxMin + ' minutes' +
     (settings.dailyLimit > 0 ? ', limit ' + settings.dailyLimit + ' key(s) per day per user' : ', no daily limit') + '. A free key works on ' + settings.freeDevices + ' device(s). ' +
+    (settings.resultMode === 'download' ? 'IMPORTANT: right now the website gives a DOWNLOAD LINK (not a key) after the same steps (subscribe, video, comment). ' : '') +
     'Video step: ' + (video.enabled ? 'ON (watch ' + video.watchSec + ' seconds' + (video.requireComment ? ', then comment' : '') + '; after that a pass lets you get more keys without the video for ' + video.passHours + ' hours)' : 'OFF') + '. ' +
     'App update popup: ' + (update.enabled ? 'ON, users on an old version must update (latest version ' + update.latest + ')' : 'OFF') + '. ' +
     (settings.notice ? 'Current notice from the owner: ' + String(settings.notice).slice(0, 200) + '. ' : '');
@@ -575,7 +577,7 @@ function adminFacts() {
   const now = Date.now(); let total = 0, active = 0, unused = 0, expired = 0;
   for (const v of Object.values(keys)) { total++; if (!v.activatedAt) unused++; else if (now >= v.exp) expired++; else active++; }
   return { keys: { total, active, unused, expired }, freeKeys: freeStats(), videoStats: video.stats, freeEnabled: settings.freeEnabled,
-    rules: { minMin: settings.minMin, maxMin: settings.maxMin, dailyLimit: settings.dailyLimit, waitSec: settings.waitSec, ytHandle: settings.ytHandle },
+    rules: { resultMode: settings.resultMode, minMin: settings.minMin, maxMin: settings.maxMin, dailyLimit: settings.dailyLimit, waitSec: settings.waitSec, ytHandle: settings.ytHandle },
     blockedNow: sec.blocks.size, recentBlocks: sec.log.slice(0, 10).map(x => ({ minutes: x.mins, reason: x.reason, by: x.by })),
     bugs: [...bugs.values()].sort((a, b) => b.last - a.last).slice(0, 10).map(b => ({ src: b.src, msg: b.msg, count: b.n })), warnings: secWarnings(), aiChatToday: chatDay.n };
 }
@@ -674,7 +676,8 @@ http.createServer(async (req, res) => {
     if (url === '/api/getkey/status' && req.method === 'GET') {
       return send(res, 200, { ok: true, enabled: settings.freeEnabled, minMin: settings.minMin, maxMin: settings.maxMin,
         mode: GOOGLE_CLIENT_ID ? 'google' : 'soft', clientId: GOOGLE_CLIENT_ID, ytUrl: settings.ytUrl, ytHandle: settings.ytHandle,
-        title: settings.title, subtitle: settings.subtitle, notice: settings.notice, closedMsg: settings.closedMsg, waitSec: settings.waitSec });
+        title: settings.title, subtitle: settings.subtitle, notice: settings.notice, closedMsg: settings.closedMsg, waitSec: settings.waitSec,
+        resultMode: settings.resultMode, dlLabel: settings.dlLabel, dlName: settings.dlName });   // dlUrl is NOT sent here, only after the steps are done
     }
     if (url === '/api/getkey/ticket' && req.method === 'GET') {
       if (throttled(req)) return send(res, 429, { ok: false, msg: 'Too many requests, wait a minute' });
@@ -799,6 +802,12 @@ http.createServer(async (req, res) => {
       } else if (vrec && vrec.gid) {
         gid = vrec.gid;   // no-login mode: one commenter channel (or IP) = one identity
       }
+      // 1b) DOWNLOAD mode: all steps above are the same, but the user gets the download link instead of a key
+      if (settings.resultMode === 'download') {
+        if (!settings.dlUrl) return send(res, 200, { ok: false, msg: 'Download link is not set yet. Try again later.' });
+        if (b.vtoken) vTokens.delete(b.vtoken);   // video token is one-time
+        return send(res, 200, { ok: true, download: true, url: settings.dlUrl, label: settings.dlLabel, name: settings.dlName });
+      }
       // 2) daily limit (per IP and per Google channel)
       const ih = ipHash(req);
       if (settings.dailyLimit > 0) {
@@ -871,6 +880,15 @@ http.createServer(async (req, res) => {
         n.subtitle = str(b.subtitle, 80, n.subtitle);
         n.notice = str(b.notice, 200, n.notice);
         n.closedMsg = str(b.closedMsg, 120, n.closedMsg) || 'Free keys are closed right now.';
+        if (b.resultMode !== undefined) n.resultMode = b.resultMode === 'download' ? 'download' : 'key';
+        if (b.dlUrl !== undefined) {
+          const du = String(b.dlUrl).trim().slice(0, 500);
+          if (du && !/^https?:\/\//i.test(du)) return send(res, 400, { ok: false, msg: 'Download link must start with https://' });
+          n.dlUrl = du;
+        }
+        n.dlLabel = str(b.dlLabel, 30, n.dlLabel) || 'DOWNLOAD NOW';
+        n.dlName = str(b.dlName, 60, n.dlName);
+        if (n.resultMode === 'download' && !n.dlUrl) return send(res, 400, { ok: false, msg: 'Add the download link first, then choose Download mode' });
         if (b.ytUrl !== undefined) {
           const u = String(b.ytUrl).trim().slice(0, 300);
           if (/^https:\/\/((www|m)\.)?youtube\.com\//.test(u) || /^https:\/\/youtu\.be\//.test(u)) n.ytUrl = u;

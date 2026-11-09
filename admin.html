@@ -112,6 +112,22 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
   </div>
 
   <div class="card">
+    <h2>🎯 Website result <span class="chip" id="rm_state" style="margin-left:auto">…</span></h2>
+    <div class="hint">Users do the same steps (subscribe → video → comment). Then they get either a random-time <b>key</b> or your <b>download link</b>. Pick one and press Save.</div>
+    <div class="chips" id="rm_chips">
+      <button class="qc on" data-m="key">🔑 Key generator</button>
+      <button class="qc" data-m="download">⬇ Download link</button>
+    </div>
+    <div class="fl">Download link (https://...)</div>
+    <input id="dl_url" type="text" maxlength="500" placeholder="https://...">
+    <div class="fl">File name shown to users (optional)</div>
+    <input id="dl_name" type="text" maxlength="60" placeholder="e.g. ANUBHAB MODZ v2.0 APK">
+    <div class="fl">Download button text</div>
+    <input id="dl_label" type="text" maxlength="30" placeholder="DOWNLOAD NOW">
+    <button class="btn" id="rm_save">Save</button>
+  </div>
+
+  <div class="card">
     <h2>⚙️ Key rules</h2>
     <div class="g2">
       <div><div class="fl">Min time (minutes)</div><input id="f_min" type="number" min="5" max="1440"></div>
@@ -229,7 +245,7 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
 <script>
 const API='https://proxy-90bc.onrender.com';
 const $=id=>document.getElementById(id);
-let pass=localStorage.getItem('ap')||'',keys=[],filter='all',qty=1,timer=null;
+let pass=localStorage.getItem('ap')||'',keys=[],filter='all',qty=1,timer=null,rmode='key';
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),/error|failed|not set|limit/i.test(m)?7000:2000)}
@@ -287,7 +303,11 @@ function fillSettings(s){
   $('f_min').value=s.minMin;$('f_max').value=s.maxMin;$('f_dev').value=s.freeDevices;$('f_day').value=s.dailyLimit;$('f_wait').value=s.waitSec;
   $('f_title').value=s.title||'';$('f_sub').value=s.subtitle||'';$('f_notice').value=s.notice||'';$('f_closed').value=s.closedMsg||'';
   $('f_ytu').value=s.ytUrl||'';$('f_yth').value=s.ytHandle||'';
+  rmode=s.resultMode==='download'?'download':'key';setRM();
+  $('dl_url').value=s.dlUrl||'';$('dl_name').value=s.dlName||'';$('dl_label').value=s.dlLabel||'';
+  const rc=$('rm_state');rc.className='chip ok';rc.textContent=rmode==='download'?'⬇ DOWNLOAD':'🔑 KEY';
 }
+function setRM(){[...$('rm_chips').children].forEach(x=>x.classList.toggle('on',x.dataset.m===rmode))}
 async function status(){const r=await call('/api/admin/status');if(r.ok)setStatus(r)}
 $('unlock').onclick=unlock;
 $('pass').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
@@ -361,12 +381,15 @@ $('f_open').onclick=()=>window.open(FREE_URL,'_blank');
 const saveFree=async(msg)=>{
   const r=await call('/api/admin/settings','POST',{
     freeEnabled:$('f_en').checked,minMin:$('f_min').value,maxMin:$('f_max').value,freeDevices:$('f_dev').value,dailyLimit:$('f_day').value,waitSec:$('f_wait').value,
-    title:$('f_title').value,subtitle:$('f_sub').value,notice:$('f_notice').value,closedMsg:$('f_closed').value,ytUrl:$('f_ytu').value,ytHandle:$('f_yth').value});
+    title:$('f_title').value,subtitle:$('f_sub').value,notice:$('f_notice').value,closedMsg:$('f_closed').value,ytUrl:$('f_ytu').value,ytHandle:$('f_yth').value,
+    resultMode:rmode,dlUrl:$('dl_url').value,dlName:$('dl_name').value,dlLabel:$('dl_label').value});
   if(!r.ok){toast(r.msg);return false}
   fillSettings(r.settings);status();
   toast(msg||(r.settings.freeEnabled?'Saved · website ON':'Saved · website OFF'));return true;
 };
 $('f_en').onchange=()=>saveFree();
+$('rm_chips').addEventListener('click',e=>{const b=e.target.closest('button[data-m]');if(!b)return;rmode=b.dataset.m;setRM()});
+$('rm_save').onclick=()=>saveFree('✓ Saved · website gives '+(rmode==='download'?'DOWNLOAD LINK':'KEYS'));
 $('f_save_rules').onclick=()=>saveFree('✓ Rules saved');
 $('f_save_content').onclick=()=>saveFree('✓ Content saved');
 $('f_exp').onclick=async()=>{if(!confirm('Expire ALL active free keys now?'))return;const r=await call('/api/admin/free/expire-all','POST');toast(r.ok?r.count+' free keys expired':r.msg);loadKeys();status()};
