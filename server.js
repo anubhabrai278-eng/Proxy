@@ -557,7 +557,7 @@ let lastDaily = '';
 function chatPrompt() {
   const live = 'LIVE STATUS: free keys are ' + (settings.freeEnabled ? 'OPEN' : 'CLOSED (' + settings.closedMsg + ')') + '. Free key time: ' + settings.minMin + '-' + settings.maxMin + ' minutes' +
     (settings.dailyLimit > 0 ? ', limit ' + settings.dailyLimit + ' key(s) per day per user' : ', no daily limit') + '. A free key works on ' + settings.freeDevices + ' device(s). ' +
-    (settings.resultMode === 'download' ? 'IMPORTANT: right now the website gives a DOWNLOAD LINK (not a key) after the same steps (subscribe, video, comment). ' : '') +
+    (settings.resultMode === 'download' ? 'IMPORTANT: right now the website gives a DOWNLOAD LINK (not a key) after the same steps (subscribe, video, comment). ' : settings.resultMode === 'both' ? 'IMPORTANT: the website lets the user choose GET KEY or DOWNLOAD LINK; both need the same steps (subscribe, video, comment). ' : '') +
     'Video step: ' + (video.enabled ? 'ON (watch ' + video.watchSec + ' seconds' + (video.requireComment ? ', then comment' : '') + '; after that a pass lets you get more keys without the video for ' + video.passHours + ' hours)' : 'OFF') + '. ' +
     'App update popup: ' + (update.enabled ? 'ON, users on an old version must update (latest version ' + update.latest + ')' : 'OFF') + '. ' +
     (settings.notice ? 'Current notice from the owner: ' + String(settings.notice).slice(0, 200) + '. ' : '');
@@ -803,7 +803,9 @@ http.createServer(async (req, res) => {
         gid = vrec.gid;   // no-login mode: one commenter channel (or IP) = one identity
       }
       // 1b) DOWNLOAD mode: all steps above are the same, but the user gets the download link instead of a key
-      if (settings.resultMode === 'download') {
+      // resultMode 'both' = the visitor chooses (b.want = 'key' | 'download')
+      const want = settings.resultMode === 'both' ? (b.want === 'download' ? 'download' : 'key') : settings.resultMode;
+      if (want === 'download') {
         if (!settings.dlUrl) return send(res, 200, { ok: false, msg: 'Download link is not set yet. Try again later.' });
         if (b.vtoken) vTokens.delete(b.vtoken);   // video token is one-time
         return send(res, 200, { ok: true, download: true, url: settings.dlUrl, label: settings.dlLabel, name: settings.dlName });
@@ -880,7 +882,7 @@ http.createServer(async (req, res) => {
         n.subtitle = str(b.subtitle, 80, n.subtitle);
         n.notice = str(b.notice, 200, n.notice);
         n.closedMsg = str(b.closedMsg, 120, n.closedMsg) || 'Free keys are closed right now.';
-        if (b.resultMode !== undefined) n.resultMode = b.resultMode === 'download' ? 'download' : 'key';
+        if (b.resultMode !== undefined) n.resultMode = (b.resultMode === 'download' || b.resultMode === 'both') ? b.resultMode : 'key';
         if (b.dlUrl !== undefined) {
           const du = String(b.dlUrl).trim().slice(0, 500);
           if (du && !/^https?:\/\//i.test(du)) return send(res, 400, { ok: false, msg: 'Download link must start with https://' });
@@ -888,7 +890,7 @@ http.createServer(async (req, res) => {
         }
         n.dlLabel = str(b.dlLabel, 30, n.dlLabel) || 'DOWNLOAD NOW';
         n.dlName = str(b.dlName, 60, n.dlName);
-        if (n.resultMode === 'download' && !n.dlUrl) return send(res, 400, { ok: false, msg: 'Add the download link first, then choose Download mode' });
+        if (n.resultMode !== 'key' && !n.dlUrl) return send(res, 400, { ok: false, msg: 'Add the download link first, then choose Download / Both mode' });
         if (b.ytUrl !== undefined) {
           const u = String(b.ytUrl).trim().slice(0, 300);
           if (/^https:\/\/((www|m)\.)?youtube\.com\//.test(u) || /^https:\/\/youtu\.be\//.test(u)) n.ytUrl = u;

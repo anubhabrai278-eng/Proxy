@@ -70,6 +70,11 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
 .note{font-size:11.5px;color:#7d86ad;text-align:center;margin:10px 0 0;line-height:1.5}
 .warn{font-size:12px;color:#fbbf24;margin-top:12px}
 .notice{margin:0 0 14px;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.45;color:#ffe9a8;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.38);text-align:center}
+.pickrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.opt{border:1px solid var(--line);border-radius:18px;padding:14px 8px;background:rgba(255,255,255,.06);color:var(--txt);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:.2s}
+.opt span{font-size:26px}.opt b{font-size:13px;letter-spacing:1px}.opt small{font-size:11px;color:var(--mut)}
+.opt:active{transform:scale(.97)}
+.opt.on{border-color:var(--g1);background:linear-gradient(135deg,rgba(0,198,255,.16),rgba(160,68,255,.2));box-shadow:0 8px 24px rgba(120,80,255,.35)}
 [hidden]{display:none!important}
 </style>
 <style>
@@ -106,6 +111,14 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
   <div class="tag" id="tag">⚡ Random time key</div>
 
   <div id="pick">
+    <div id="chooser" hidden>
+      <div class="note" style="margin:0 0 10px;font-size:13px;color:#cfe9ff">What do you want? Choose one:</div>
+      <div class="pickrow">
+        <button class="opt" data-w="key"><span>🔑</span><b>GET KEY</b><small>Random time key</small></button>
+        <button class="opt" data-w="download"><span>⬇</span><b>DOWNLOAD LINK</b><small>Get the download</small></button>
+      </div>
+    </div>
+    <div id="flow">
     <div class="stepcard" id="st1">
       <div class="num" id="n1">1</div>
       <div class="stx"><b>Subscribe on YouTube</b><span id="chn">@anubhab_mods</span></div>
@@ -138,6 +151,7 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
     </div>
     <button class="btn" id="gen" disabled>SUBSCRIBE FIRST</button>
     <div class="note" id="gnote"></div>
+    </div>
   </div>
 
   <div class="msg" id="msg"></div>
@@ -178,7 +192,7 @@ const API='https://proxy-90bc.onrender.com';
 const $=id=>document.getElementById(id);
 let exp=0,total=1,tick=null,minMin=60,maxMin=180;
 let mode='soft',clientId='',ytUrl='https://youtube.com/@anubhab_mods?si=NoIqFEuDevSmPk3L',ticket='',ticketAt=0,subAt=0,tokenClient=null,busy=false;
-let SOFT_WAIT=15000,rmode='key',dlLabel='DOWNLOAD NOW',dlName='';
+let SOFT_WAIT=15000,rmode='key',dlLabel='DOWNLOAD NOW',dlName='',cfgMode='key',tagKey='';   // cfgMode: key | download | both (visitor chooses); rmode = what this visitor gets ('' = not chosen yet)
 
 const pad=n=>String(n).padStart(2,'0');
 const fmtMin=m=>m<60?m+'m':(m%60?Math.floor(m/60)+'h '+pad(m%60)+'m':Math.floor(m/60)+'h');
@@ -200,6 +214,7 @@ function setRange(r){
 function updateGen(){
   const b=$('gen');
   if(busy)return;
+  if(cfgMode==='both'&&!rmode){b.disabled=true;b.textContent='CHOOSE KEY OR DOWNLOAD';return}
   if(!subAt){b.disabled=true;b.textContent='SUBSCRIBE FIRST';$('s2t').textContent='Subscribe first, then continue';$('st2').classList.add('dim');return}
   $('st1').classList.add('done');$('n1').textContent='✓';$('sub').textContent='▶ OPEN AGAIN';$('sub').classList.remove('pulse');
   if(mode==='soft'){
@@ -263,7 +278,7 @@ async function doGenerate(token){
     if(!ticket||Date.now()-ticketAt>3000000){const t=await api('/api/getkey/ticket');if(t.ok){ticket=t.ticket;ticketAt=Date.now()}}
     const need=10500-(Date.now()-ticketAt);if(need>0)await sleep(need);
   }
-  const body=mode==='google'?{token}:{ticket};
+  const body=mode==='google'?{token,want:rmode}:{ticket,want:rmode};
   const r=await api('/api/getkey','POST',body);
   const wait=1700-(Date.now()-t0);if(wait>0)await sleep(wait);
   stopRoll();busy=false;
@@ -287,14 +302,23 @@ function showDownload(r){
 }
 $('dlcopy').onclick=()=>copy($('dlurl').textContent,'Link copied');
 function applyRMode(){
-  if(rmode!=='download')return;
-  $('tag').textContent='⬇ Free download';$('slot').hidden=true;
-  $('s2h').textContent='Get your download link';
-  $('stp2t').textContent='Press the button to get your download link';
-  $('stp3t').textContent='Tap DOWNLOAD and install the app';
-  $('foot').textContent='Free download · verify once to unlock';
-  document.title=document.title.replace('Get Free Key','Download');
+  if(cfgMode==='both'&&!rmode){$('tag').textContent='Choose: 🔑 Key or ⬇ Download';return}
+  const dl=rmode==='download';
+  $('tag').textContent=dl?'⬇ Free download':tagKey;
+  $('slot').hidden=dl;
+  $('s2h').textContent=dl?'Get your download link':'Get your random-time key';
+  $('stp2t').textContent=dl?'Press the button to get your download link':'Copy your key, open the app and paste it';
+  $('stp3t').textContent=dl?'Tap DOWNLOAD and install the app':'Tap LOGIN. The key stops when the timer ends';
+  $('foot').textContent=dl?'Free download · verify once to unlock':'One free key per user · works on one device';
+  document.title=document.title.replace(/^(Get Free Key|Download)/,dl?'Download':'Get Free Key');
 }
+/* both mode: visitor taps KEY or DOWNLOAD first, then the same steps open */
+$('chooser').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-w]');if(!b||busy)return;
+  rmode=b.dataset.w;
+  [...$('chooser').querySelectorAll('.opt')].forEach(x=>x.classList.toggle('on',x===b));
+  $('flow').hidden=false;applyRMode();updateGen();
+});
 $('gen').onclick=()=>{
   if(busy)return;
   if(mode==='google'){
@@ -349,7 +373,11 @@ function confetti(){
   if(r.notice){$('notice').textContent='📢 '+r.notice;$('notice').hidden=false}
   if(r.ytHandle)$('chn').textContent=r.ytHandle;
   if(r.waitSec)SOFT_WAIT=r.waitSec*1000;
-  rmode=r.resultMode==='download'?'download':'key';dlLabel=r.dlLabel||dlLabel;dlName=r.dlName||'';applyRMode();
+  cfgMode=(r.resultMode==='download'||r.resultMode==='both')?r.resultMode:'key';
+  rmode=cfgMode==='both'?'':cfgMode;tagKey=$('tag').textContent;
+  dlLabel=r.dlLabel||dlLabel;dlName=r.dlName||'';
+  if(cfgMode==='both'){$('chooser').hidden=false;$('flow').hidden=true}
+  applyRMode();
   if(r.enabled===false){$('pick').hidden=true;$('msg').className='msg bad';$('msg').textContent=r.closedMsg||'Free keys are closed right now.';return}
   mode=r.mode;clientId=r.clientId||'';
   $('sub').classList.add('pulse');

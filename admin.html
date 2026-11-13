@@ -113,10 +113,11 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
 
   <div class="card">
     <h2>🎯 Website result <span class="chip" id="rm_state" style="margin-left:auto">…</span></h2>
-    <div class="hint">Users do the same steps (subscribe → video → comment). Then they get either a random-time <b>key</b> or your <b>download link</b>. Pick one and press Save.</div>
+    <div class="hint">Users do the same steps (subscribe → video → comment). Choose what they get: only a <b>key</b>, only your <b>download link</b>, or <b>both</b> (the user picks on the website). Then press Save.</div>
     <div class="chips" id="rm_chips">
       <button class="qc on" data-m="key">🔑 Key generator</button>
       <button class="qc" data-m="download">⬇ Download link</button>
+      <button class="qc" data-m="both">🔀 User chooses (both)</button>
     </div>
     <div class="fl">Download link (https://...)</div>
     <input id="dl_url" type="text" maxlength="500" placeholder="https://...">
@@ -303,9 +304,9 @@ function fillSettings(s){
   $('f_min').value=s.minMin;$('f_max').value=s.maxMin;$('f_dev').value=s.freeDevices;$('f_day').value=s.dailyLimit;$('f_wait').value=s.waitSec;
   $('f_title').value=s.title||'';$('f_sub').value=s.subtitle||'';$('f_notice').value=s.notice||'';$('f_closed').value=s.closedMsg||'';
   $('f_ytu').value=s.ytUrl||'';$('f_yth').value=s.ytHandle||'';
-  rmode=s.resultMode==='download'?'download':'key';setRM();
+  rmode=(s.resultMode==='download'||s.resultMode==='both')?s.resultMode:'key';setRM();
   $('dl_url').value=s.dlUrl||'';$('dl_name').value=s.dlName||'';$('dl_label').value=s.dlLabel||'';
-  const rc=$('rm_state');rc.className='chip ok';rc.textContent=rmode==='download'?'⬇ DOWNLOAD':'🔑 KEY';
+  const rc=$('rm_state');rc.className='chip ok';rc.textContent=rmode==='download'?'⬇ DOWNLOAD':rmode==='both'?'🔀 BOTH':'🔑 KEY';
 }
 function setRM(){[...$('rm_chips').children].forEach(x=>x.classList.toggle('on',x.dataset.m===rmode))}
 async function status(){const r=await call('/api/admin/status');if(r.ok)setStatus(r)}
@@ -389,7 +390,7 @@ const saveFree=async(msg)=>{
 };
 $('f_en').onchange=()=>saveFree();
 $('rm_chips').addEventListener('click',e=>{const b=e.target.closest('button[data-m]');if(!b)return;rmode=b.dataset.m;setRM()});
-$('rm_save').onclick=()=>saveFree('✓ Saved · website gives '+(rmode==='download'?'DOWNLOAD LINK':'KEYS'));
+$('rm_save').onclick=()=>saveFree('✓ Saved · website gives '+(rmode==='download'?'DOWNLOAD LINK':rmode==='both'?'KEY or DOWNLOAD (user chooses)':'KEYS'));
 $('f_save_rules').onclick=()=>saveFree('✓ Rules saved');
 $('f_save_content').onclick=()=>saveFree('✓ Content saved');
 $('f_exp').onclick=async()=>{if(!confirm('Expire ALL active free keys now?'))return;const r=await call('/api/admin/free/expire-all','POST');toast(r.ok?r.count+' free keys expired':r.msg);loadKeys();status()};
