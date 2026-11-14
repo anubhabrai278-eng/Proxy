@@ -125,6 +125,12 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
     <input id="dl_name" type="text" maxlength="60" placeholder="e.g. ANUBHAB MODZ v2.0 APK">
     <div class="fl">Download button text</div>
     <input id="dl_label" type="text" maxlength="30" placeholder="DOWNLOAD NOW">
+    <div class="fl">Version (shown on the download card)</div>
+    <input id="dl_ver" type="text" maxlength="20" placeholder="e.g. 2.0">
+    <div class="fl">File size</div>
+    <input id="dl_size" type="text" maxlength="20" placeholder="e.g. 48 MB">
+    <div class="fl">What's new (one line per point)</div>
+    <textarea id="dl_notes" maxlength="400" rows="3" style="width:100%;box-sizing:border-box;border-radius:12px;padding:10px;background:#0b1020;color:#fff;border:1px solid #2a3350" placeholder="- New menu&#10;- Bug fixes"></textarea>
     <button class="btn" id="rm_save">Save</button>
   </div>
 
@@ -305,7 +311,7 @@ function fillSettings(s){
   $('f_title').value=s.title||'';$('f_sub').value=s.subtitle||'';$('f_notice').value=s.notice||'';$('f_closed').value=s.closedMsg||'';
   $('f_ytu').value=s.ytUrl||'';$('f_yth').value=s.ytHandle||'';
   rmode=(s.resultMode==='download'||s.resultMode==='both')?s.resultMode:'key';setRM();
-  $('dl_url').value=s.dlUrl||'';$('dl_name').value=s.dlName||'';$('dl_label').value=s.dlLabel||'';
+  $('dl_url').value=s.dlUrl||'';$('dl_name').value=s.dlName||'';$('dl_label').value=s.dlLabel||'';$('dl_ver').value=s.dlVersion||'';$('dl_size').value=s.dlSize||'';$('dl_notes').value=s.dlNotes||'';
   const rc=$('rm_state');rc.className='chip ok';rc.textContent=rmode==='download'?'⬇ DOWNLOAD':rmode==='both'?'🔀 BOTH':'🔑 KEY';
 }
 function setRM(){[...$('rm_chips').children].forEach(x=>x.classList.toggle('on',x.dataset.m===rmode))}
@@ -383,7 +389,7 @@ const saveFree=async(msg)=>{
   const r=await call('/api/admin/settings','POST',{
     freeEnabled:$('f_en').checked,minMin:$('f_min').value,maxMin:$('f_max').value,freeDevices:$('f_dev').value,dailyLimit:$('f_day').value,waitSec:$('f_wait').value,
     title:$('f_title').value,subtitle:$('f_sub').value,notice:$('f_notice').value,closedMsg:$('f_closed').value,ytUrl:$('f_ytu').value,ytHandle:$('f_yth').value,
-    resultMode:rmode,dlUrl:$('dl_url').value,dlName:$('dl_name').value,dlLabel:$('dl_label').value});
+    resultMode:rmode,dlUrl:$('dl_url').value,dlName:$('dl_name').value,dlLabel:$('dl_label').value,dlVersion:$('dl_ver').value,dlSize:$('dl_size').value,dlNotes:$('dl_notes').value});
   if(!r.ok){toast(r.msg);return false}
   fillSettings(r.settings);status();
   toast(msg||(r.settings.freeEnabled?'Saved · website ON':'Saved · website OFF'));return true;

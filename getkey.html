@@ -157,6 +157,27 @@ h1{font-family:Orbitron,'Rajdhani',sans-serif;font-size:21px;letter-spacing:3px;
 #toast{top:calc(env(safe-area-inset-top,0px) + 10px);bottom:auto;left:50%;right:auto;background:#000;color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:12px 24px;font-weight:700;letter-spacing:.5px;opacity:0;transform:translate(-50%,-90px) scale(.5);box-shadow:0 14px 40px rgba(0,0,0,.6),0 0 24px rgba(0,229,255,.25);transition:transform .6s var(--spring),opacity .25s}
 #toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ===== LIQUID GLASS ===== */
+.card,.opt,.stepcard,.slot,.card>.res,.keybox,#toast{-webkit-backdrop-filter:blur(22px) saturate(1.8);backdrop-filter:blur(22px) saturate(1.8)}
+.card{background:linear-gradient(160deg,rgba(255,255,255,.17),rgba(255,255,255,.04) 38%,rgba(18,22,58,.42));box-shadow:inset 0 1.5px 0 rgba(255,255,255,.6),inset 0 -1px 0 rgba(255,255,255,.14),inset 0 0 36px rgba(255,255,255,.06),0 30px 80px rgba(0,0,0,.55)}
+.opt,.stepcard,.slot{background:linear-gradient(160deg,rgba(255,255,255,.2),rgba(255,255,255,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.65),inset 0 -10px 20px rgba(255,255,255,.04),0 10px 26px rgba(0,0,0,.35)}
+.opt.on{background:linear-gradient(160deg,rgba(255,255,255,.3),rgba(255,255,255,.07))}
+.btn{box-shadow:inset 0 2px 0 rgba(255,255,255,.6),inset 0 -6px 14px rgba(0,0,0,.18),0 14px 38px rgba(124,77,255,.5)}
+#lg{position:fixed;inset:0;pointer-events:none;z-index:3;background:radial-gradient(280px circle at var(--x,50%) var(--y,18%),rgba(255,255,255,.17),transparent 62%);mix-blend-mode:overlay}
+.squish{animation:squish .6s cubic-bezier(.34,1.56,.64,1)}
+@keyframes squish{25%{transform:scale(1.07,.9)}55%{transform:scale(.97,1.05)}}
+/* quest / XP */
+.quest{margin:0 0 14px;padding:10px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.14);background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.02))}
+.qt{display:flex;justify-content:space-between;font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:1.5px;margin-bottom:7px}.qt b{color:#ffd166}.qt span{color:#7cffb2}
+.qb{height:10px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}.qb i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#39ff88,#00e5ff,#7c4dff,#ff3d9a);background-size:200% 100%;transition:width .9s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 14px rgba(0,229,255,.7)}
+.quest.up{animation:squish .7s}
+/* download extras */
+.notes{white-space:pre-line;text-align:left;font-size:13px;line-height:1.5;color:#cfd6ff;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:14px;padding:10px 12px;margin:0 0 12px}
+.notes:before{content:"WHAT'S NEW";display:block;font-family:Orbitron,sans-serif;font-size:10px;letter-spacing:2px;color:#ffd166;margin-bottom:4px}
+.qrbox{margin-top:14px;display:flex;align-items:center;gap:12px;text-align:left;font-size:12px;color:#9aa6d8}
+.qrbox #qr{background:#fff;padding:6px;border-radius:12px;line-height:0;flex:none}
+#snd{position:fixed;left:14px;bottom:14px;z-index:5;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#fff;font:700 10px Orbitron,sans-serif;letter-spacing:1px}
 </style>
 <style>
 /* ===== WATCH VIDEO STEP (added) ===== */
@@ -257,11 +278,13 @@ h1{font-family:Orbitron,'Rajdhani',sans-serif;font-size:21px;letter-spacing:3px;
       <div class="dlinfo"><b id="dlname">Your download</b><span>Verified file · secure link</span>
         <div class="chips"><i>FREE</i><i>SECURE</i><i>FAST</i></div></div>
     </div>
+    <div class="notes" id="dlnotes" hidden></div>
     <div class="dlstat"><span class="s1">PREPARING YOUR FILE</span><span class="s2" id="dlgot">READY TO DOWNLOAD</span></div>
     <div class="dlprog"><i></i></div>
     <a class="btn dlbtn" id="dla" href="#" target="_blank" rel="noopener noreferrer">DOWNLOAD NOW</a>
     <div class="keybox" style="margin-top:12px"><code id="dlurl" style="font-size:12px;font-weight:600"></code><button class="cp" id="dlcopy">COPY</button></div>
     <div class="warn">If the download does not start, press the button again.</div>
+    <div class="qrbox" id="qrbox"><div id="qr"></div><span>Scan this QR to open the download on another phone or PC.</span></div>
   </div>
 
   <ul class="steps">
@@ -387,6 +410,7 @@ function showDownload(r){
   $('dlres').hidden=false;$('dlres').classList.remove('go');void $('dlres').offsetWidth;$('dlres').classList.add('go');$('pick').hidden=true;$('msg').textContent='';confetti();
 }
 $('dlcopy').onclick=()=>copy($('dlurl').textContent,'Link copied');
+function startVideo(m){if(window.__applyVideoMode)window.__applyVideoMode(m);else window.__pendingMode=m}
 function applyRMode(){
   if(cfgMode==='both'&&!rmode){$('tag').textContent='Choose: Key or Download';return}
   const dl=rmode==='download';
@@ -403,7 +427,7 @@ $('chooser').addEventListener('click',e=>{
   const b=e.target.closest('button[data-w]');if(!b||busy)return;
   rmode=b.dataset.w;
   [...$('chooser').querySelectorAll('.opt')].forEach(x=>x.classList.toggle('on',x===b));
-  $('flow').hidden=false;applyRMode();updateGen();
+  $('flow').hidden=false;applyRMode();updateGen();startVideo(rmode);
 });
 $('gen').onclick=()=>{
   if(busy)return;
@@ -464,6 +488,8 @@ function confetti(){
   dlLabel=r.dlLabel||dlLabel;dlName=r.dlName||'';
   if(cfgMode==='both'){$('chooser').hidden=false;$('flow').hidden=true}
   applyRMode();
+  if(rmode)startVideo(rmode);   // video + comment pass is checked per mode (key / download)
+  if(rmode)startVideo(rmode);
   if(r.enabled===false){$('pick').hidden=true;$('msg').className='msg bad';$('msg').textContent=r.closedMsg||'Free keys are closed right now.';return}
   mode=r.mode;clientId=r.clientId||'';
   $('sub').classList.add('pulse');
@@ -510,6 +536,8 @@ function gate(){
 }
 const mo=new MutationObserver(gate);
 ['gen','s2t','st2'].forEach(id=>mo.observe($(id),{childList:true,characterData:true,subtree:true,attributes:true}));
+const PK=m=>'am_pass_'+(m==='download'?'download':'key');   // one saved pass per mode
+let curMode='',legacy=1;try{localStorage.removeItem('am_pass')}catch(e){}
 const og=$('gen').onclick;
 $('gen').onclick=function(e){
   if(V.on&&!V.done){toast('Finish the video step first');return}
@@ -527,7 +555,7 @@ window.fetch=async function(u,o){
   if(isKey&&V.on){
     r.clone().json().then(j=>{
       if(j&&j.ok){if(!V.pass)resetVideo();else{V.vtoken='';hidePassBox()}}
-      else if(j&&j.needVideo){if(V.pass){try{localStorage.removeItem('am_pass')}catch(e){}location.reload();return}resetVideo();toast('Watch the video again')}
+      else if(j&&j.needVideo){if(V.pass){try{localStorage.removeItem(PK(curMode))}catch(e){}location.reload();return}resetVideo();toast('Watch the video again')}
     }).catch(()=>{});
   }
   return r;
@@ -645,7 +673,7 @@ $('vdone').onclick=()=>{V.commented=true;$('vdone').hidden=true;$('vcm').hidden=
 /* ---- finish: server checks the watch time and gives a one-time token ---- */
 async function finish(){
   if(V.finishing||V.done)return;V.finishing=true;
-  const r=await api('/api/getkey/video/done','POST',{sid:V.sid,watched:Math.floor(V.watched),dur:V.dur,commented:V.commented,commentId:V.commentId});
+  const r=await api('/api/getkey/video/done','POST',{sid:V.sid,watched:Math.floor(V.watched),dur:V.dur,commented:V.commented,commentId:V.commentId,mode:curMode});
   V.finishing=false;
   if(!r.ok){
     if(/expired|reload/i.test(r.msg||'')){resetVideo();setMsg(r.msg||'Session expired, watch again','bad');return}
@@ -654,64 +682,120 @@ async function finish(){
     V.retryAt=Date.now()+(V.cfg.codeMode?8000:4000);setMsg(r.msg||'Could not save, retrying…','bad');return;
   }
   V.vtoken=r.vtoken;V.done=true;
-  if(r.pass){V.pass=r.pass;V.passExp=Date.now()+(r.passLeft||0);try{localStorage.setItem('am_pass',r.pass)}catch(e){}}
-  setMsg(r.pass?(r.already?'You already finished the video. ':'')+'You can get keys for '+leftTxt(r.passLeft)+'. The video unlocks again after that.':'','ok');
+  if(r.pass){V.pass=r.pass;V.passExp=Date.now()+(r.passLeft||0);try{localStorage.setItem(PK(curMode),r.pass)}catch(e){}}
+  setMsg(r.pass?(r.already?'You already finished the video. ':'')+'You can get '+(curMode==='download'?'downloads':'keys')+' for '+leftTxt(r.passLeft)+'. The video unlocks again after that.':'','ok');
   ui();updateGen();toast('✓ Video step done');
 }
 
 /* ---- boot ---- */
-function leftTxt(ms){ms=Math.max(0,ms||0);const h=Math.floor(ms/3600000),m=Math.round((ms%3600000)/60000);return h+'h '+m+'m'}
+function leftTxt(ms){const t=Math.max(0,Math.round((ms||0)/60000));return Math.floor(t/60)+'h '+(t%60)+'m'}
 /* after the pass starts: video + comment box stays hidden, only a small note is shown; keys are unlimited */
 function showPassNote(ms){
   let n=$('vpassnote');
   if(!n){n=document.createElement('div');n.className='vmsg ok';n.id='vpassnote';n.style.cssText='margin:10px 0;text-align:center';$('st2').before(n)}
-  n.textContent='✓ Video step done. You can get unlimited keys for '+leftTxt(ms)+'.';
+  n.textContent='✓ Video step done. You can get unlimited '+(curMode==='download'?'downloads':'keys')+' for '+leftTxt(ms)+'.';
 }
 function hidePassBox(){
   vbox.hidden=true;showPassNote(V.passExp-Date.now());
   if(!V.pti)V.pti=setInterval(()=>{
-    if(Date.now()>V.passExp){try{localStorage.removeItem('am_pass')}catch(e){}location.reload()}
+    if(Date.now()>V.passExp){try{localStorage.removeItem(PK(curMode))}catch(e){}location.reload()}
     else showPassNote(V.passExp-Date.now());
   },30000);
 }
-async function boot(){
-  let sp='';try{sp=localStorage.getItem('am_pass')||''}catch(e){}
-  let r=null;
-  for(let i=0;i<4;i++){
-    r=await api('/api/getkey/video'+(sp?'?pass='+encodeURIComponent(sp):''));
-    if(r&&r.ok)break;
-    await sleep(4000);
-  }
-  if(!r||!r.ok||!r.enabled||!r.videoId){if(sp&&r&&r.ok&&!r.enabled){try{localStorage.removeItem('am_pass')}catch(e){}}return}
-  if(r.passed){   /* this user already did the video: no video for passHours, but keys are allowed */
-    V.cfg=r;V.on=true;V.done=true;V.pass=sp;V.passExp=Date.now()+(r.left||0);V.need=r.watchSec||30;
-    vbox.hidden=true;showPassNote(r.left);   /* no video / comment box for this user */
-    updateGen();
-    hidePassBox();
-    return;
-  }
-  if(sp){try{localStorage.removeItem('am_pass')}catch(e){}}   /* pass expired or reset */
-  V.cfg=r;V.on=true;V.need=r.watchSec||30;
-  $('vtitle').textContent=r.title||'Watch the video';
-  $('vsub').textContent=r.hint||(r.requireComment?'Watch the video and leave a comment':'Watch the video to continue');
-  vbox.hidden=false;
-  $('st2').querySelector('.num').textContent='3';
-  const lis=document.querySelectorAll('.steps li');
-  if(lis[0]){
-    const li=document.createElement('li');
-    li.innerHTML='<i></i>Watch the video'+(r.requireComment?' and leave a comment':'');
-    lis[0].after(li);
-    document.querySelectorAll('.steps li').forEach((x,i)=>{x.querySelector('i').textContent=i+1});
-  }
-  ui();gate();
-  initPlayer();   // build the player right away (it stays locked until subscribe) so the video is ready when unlocked
+function ensureLoop(){
+  if(V.loop)return;V.loop=true;
   setInterval(()=>{
     $('vlock').hidden=!!subAt;
-    if(subAt&&!V.player)initPlayer();
+    if(subAt&&!V.player&&!V.done)initPlayer();
     track();gate();
     if(V.watchDone&&!V.done&&!V.finishing&&(!V.cfg.requireComment||V.commented)&&Date.now()>=V.retryAt)finish();
   },500);
 }
-boot();
+/* video step list item: shown while the video is still needed, hidden once this mode has its pass */
+function setStepVid(show,rc){
+  let li=$('stpvid');
+  if(!li){const lis=document.querySelectorAll('.steps li');if(!lis[0])return;li=document.createElement('li');li.id='stpvid';li.innerHTML='<i></i><span></span>';lis[0].after(li)}
+  li.querySelector('span').textContent='Watch the video'+(rc?' and leave a comment':'');
+  li.hidden=!show;
+  [...document.querySelectorAll('.steps li')].filter(x=>!x.hidden).forEach((x,i)=>{x.querySelector('i').textContent=i+1});
+  $('st2').querySelector('.num').textContent=show?'3':'2';
+}
+/* called when the mode is known (single mode: at load, both mode: when the visitor taps KEY or DOWNLOAD) */
+async function applyMode(m){
+  m=m==='download'?'download':'key';
+  if(curMode===m)return;
+  curMode=m;const my=m;
+  clearInterval(V.pti);V.pti=0;const pn=$('vpassnote');if(pn)pn.remove();
+  resetVideo();Object.assign(V,{pass:'',passExp:0,done:false,on:false,cfg:null});
+  let sp='';try{sp=localStorage.getItem(PK(m))||''}catch(e){}
+  let r=null;
+  for(let i=0;i<4;i++){
+    r=await api('/api/getkey/video?mode='+m+(sp?'&pass='+encodeURIComponent(sp):''));
+    if(curMode!==my)return;   /* the visitor switched mode meanwhile */
+    if(r&&r.ok)break;
+    await sleep(4000);
+    if(curMode!==my)return;
+  }
+  if(!r||!r.ok||!r.enabled||!r.videoId){if(sp&&r&&r.ok&&!r.enabled){try{localStorage.removeItem(PK(m))}catch(e){}}return}
+  if(r.passed){   /* this mode already has its video+comment: hidden for THIS mode only */
+    V.cfg=r;V.on=true;V.done=true;V.pass=sp;V.passExp=Date.now()+(r.left||0);V.need=r.watchSec||30;
+    vbox.hidden=true;setStepVid(false,r.requireComment);showPassNote(r.left);
+    updateGen();hidePassBox();ensureLoop();
+    return;
+  }
+  if(sp){try{localStorage.removeItem(PK(m))}catch(e){}}   /* pass expired or reset */
+  V.cfg=r;V.on=true;V.need=r.watchSec||30;
+  $('vtitle').textContent=r.title||'Watch the video';
+  $('vsub').textContent=r.hint||(r.requireComment?'Watch the video and leave a comment':'Watch the video to continue');
+  vbox.hidden=false;setStepVid(true,r.requireComment);
+  ui();gate();updateGen();
+  initPlayer();   // build the player right away (it stays locked until subscribe) so the video is ready when unlocked
+  ensureLoop();
+}
+window.__applyVideoMode=applyMode;
+if(window.__pendingMode)applyMode(window.__pendingMode);
 })();
-</script><a href="/help" style="position:fixed;right:14px;bottom:14px;z-index:50;padding:12px 16px;border-radius:999px;background:linear-gradient(90deg,#00c6ff,#9b4dff);color:#fff;font:700 14px system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(0,0,0,.4)">🤖 AI Help</a></body></html>
+</script><a href="/help" style="position:fixed;right:14px;bottom:14px;z-index:50;padding:12px 16px;border-radius:999px;background:linear-gradient(90deg,#00c6ff,#9b4dff);color:#fff;font:700 14px system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(0,0,0,.4)">🤖 AI Help</a><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ===== liquid light + sound/vibration + quest XP + download extras ===== */
+(function(){
+const $=id=>document.getElementById(id);
+const lg=document.createElement('div');lg.id='lg';document.body.appendChild(lg);
+const L=(x,y)=>{lg.style.setProperty('--x',x+'px');lg.style.setProperty('--y',y+'px')};
+addEventListener('pointermove',e=>L(e.clientX,e.clientY),{passive:true});
+addEventListener('deviceorientation',e=>{if(e.gamma==null)return;L(innerWidth/2+e.gamma/45*innerWidth/2,innerHeight/2+((e.beta||45)-45)/45*innerHeight/3)},{passive:true});
+let AC=null,snd=true;try{snd=localStorage.getItem('gk_snd')!=='0'}catch(e){}
+function beep(f,d,t,v){if(!snd)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=v||.05;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+const vib=p=>{if(snd&&navigator.vibrate)try{navigator.vibrate(p)}catch(e){}};
+const ok=()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle',.06),i*90));vib([20,40,30])};
+const bad=()=>{beep(170,.28,'sawtooth',.05);vib([60,40,60])};
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('.btn,.opt,.yt,.cp');if(!b)return;b.classList.remove('squish');void b.offsetWidth;b.classList.add('squish');beep(520,.06,'triangle');vib(8)},{passive:true});
+const sb=document.createElement('button');sb.id='snd';const sl=()=>{sb.textContent=snd?'SFX':'OFF'};sl();
+sb.onclick=()=>{snd=!snd;try{localStorage.setItem('gk_snd',snd?'1':'0')}catch(e){}sl();if(snd)beep(660,.1)};document.body.appendChild(sb);
+new MutationObserver(()=>{const m=$('msg');if(m&&m.classList.contains('bad')&&m.textContent)bad()}).observe($('msg'),{attributes:true,childList:true});
+['show','showDownload'].forEach(n=>{const f=window[n];if(typeof f==='function')window[n]=function(){ok();return f.apply(this,arguments)}});
+/* quest bar */
+const q=document.createElement('div');q.className='quest';q.innerHTML='<div class="qt"><b id="qlv">LEVEL 1 · SUBSCRIBE</b><span id="qx">0 / 3 XP</span></div><div class="qb"><i id="qf"></i></div>';
+$('pick').before(q);let last=0;
+const LV=['LEVEL 1 · SUBSCRIBE','LEVEL 2 · WATCH','LEVEL 3 · CLAIM','QUEST COMPLETE'];
+setInterval(()=>{
+  const sv=$('stpvid'),needV=sv&&!sv.hidden;
+  let xp=0;if($('st1').classList.contains('done'))xp=1;
+  if(xp===1&&(!needV||$('vid').classList.contains('done')))xp=2;
+  if(!$('res').hidden||!$('dlres').hidden)xp=3;
+  $('qf').style.width=(xp/3*100)+'%';$('qx').textContent=xp+' / 3 XP';$('qlv').textContent=LV[xp];
+  if(xp>last){q.classList.remove('up');void q.offsetWidth;q.classList.add('up');if(xp<3)beep(700+xp*150,.15,'square',.03)}
+  last=xp;
+},400);
+/* download extras: version, size, what's new, QR */
+const sd=window.showDownload;
+window.showDownload=function(r){
+  sd.apply(this,arguments);
+  const c=document.querySelector('#dlres .chips');c.querySelectorAll('.x').forEach(n=>n.remove());
+  [[r.size,'#b388ff',''],[r.version,'#ff3d9a','v']].forEach(([t,col,p])=>{if(!t)return;const i=document.createElement('i');i.className='x';i.style.cssText='color:'+col+';border-color:'+col+'77;background:'+col+'18';i.textContent=p+String(t).replace(/^v/i,'');c.appendChild(i)});
+  const n=$('dlnotes');n.hidden=!r.notes;n.textContent=r.notes||'';
+  const qr=$('qr');qr.innerHTML='';try{new QRCode(qr,{text:r.url,width:116,height:116,colorDark:'#05060f',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){$('qrbox').hidden=true}
+};
+})();
+</script>
+</body></html>
