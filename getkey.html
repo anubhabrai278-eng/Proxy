@@ -7,6 +7,8 @@
 <script id="ytapi" src="https://www.youtube.com/iframe_api" async></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060914">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&display=swap">
 <title>Get Free Key - Anubhab Modz</title>
 <style>
 :root{--bg:#060914;--line:rgba(255,255,255,.13);--txt:#eef1ff;--mut:#8f98c2;--g1:#00c6ff;--g2:#a044ff;--ok:#4ade80;--bad:#f87171}
@@ -76,6 +78,85 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
 .opt:active{transform:scale(.97)}
 .opt.on{border-color:var(--g1);background:linear-gradient(135deg,rgba(0,198,255,.16),rgba(160,68,255,.2));box-shadow:0 8px 24px rgba(120,80,255,.35)}
 [hidden]{display:none!important}
+
+/* ===== GAME THEME ===== */
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+:root{--g1:#00e5ff;--g2:#7c4dff;--g3:#ff3d9a;--g4:#ffb300;--g5:#39ff88;--spring:cubic-bezier(.34,1.56,.64,1);--ios:cubic-bezier(.32,.72,0,1);--mut:#9aa6d8}
+body{font-family:'Rajdhani',system-ui,-apple-system,sans-serif;font-weight:600;background:#04050d}
+.o1{background:#00e5ff;opacity:.5}.o2{background:#7c4dff;opacity:.6}.o3{background:#ff3d9a;opacity:.4}
+body:after{content:"";position:fixed;z-index:0;width:260px;height:260px;border-radius:50%;background:#39ff88;filter:blur(90px);opacity:.28;left:-60px;bottom:8%;animation:float 17s ease-in-out infinite -3s;pointer-events:none}
+.card{border:0;border-radius:30px;background:linear-gradient(160deg,rgba(26,30,66,.8),rgba(8,10,26,.9));box-shadow:0 30px 80px rgba(0,0,0,.65),0 0 60px rgba(124,77,255,.18),inset 0 1px 0 rgba(255,255,255,.12);animation:rise .9s var(--ios) both}
+.card:after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;background:conic-gradient(from var(--a),#00e5ff,#7c4dff,#ff3d9a,#ffb300,#39ff88,#00e5ff);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin 6s linear infinite;pointer-events:none}
+@keyframes spin{to{--a:360deg}}
+@keyframes rise{from{opacity:0;transform:translateY(46px) scale(.93);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
+@keyframes pop{from{opacity:0;transform:translateY(22px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes sheet{from{opacity:0;transform:translateY(70px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes bob{50%{transform:translateY(-6px) rotate(-2deg)}}
+@keyframes flow{to{background-position:220% 0}}
+.card>div,.card>ul{animation:pop .75s var(--spring) both}
+.card>:nth-child(2){animation-delay:.05s}.card>:nth-child(3){animation-delay:.1s}.card>:nth-child(4){animation-delay:.15s}.card>:nth-child(5){animation-delay:.2s}.card>:nth-child(6){animation-delay:.26s}.card>:nth-child(7){animation-delay:.32s}.card>:nth-child(8){animation-delay:.38s}
+.logo{width:80px;height:80px;border-radius:26px;background:linear-gradient(135deg,#00e5ff,#7c4dff 55%,#ff3d9a);box-shadow:0 0 0 1px rgba(255,255,255,.25) inset,0 14px 40px rgba(124,77,255,.6),0 0 40px rgba(0,229,255,.35);position:relative;overflow:hidden;animation:bob 3.4s ease-in-out infinite}
+.logo svg{width:44px;height:44px;position:relative}
+.logo:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 65%);transform:translateX(-120%);animation:glint 3.6s ease-in-out infinite}
+@keyframes glint{60%,100%{transform:translateX(120%)}}
+h1{font-family:Orbitron,'Rajdhani',sans-serif;font-size:21px;letter-spacing:3px;background-image:linear-gradient(90deg,#00e5ff,#7c4dff,#ff3d9a,#ffb300,#39ff88,#00e5ff);background-size:300% 100%;animation:shine 5s linear infinite}
+.sub{font-weight:700;letter-spacing:1px;color:var(--mut);text-transform:uppercase;font-size:13px}
+.tag{background:linear-gradient(90deg,rgba(0,229,255,.16),rgba(255,61,154,.16));border:1px solid rgba(0,229,255,.45);color:#c9f7ff;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;box-shadow:0 0 22px rgba(0,229,255,.18)}
+.pickrow{gap:12px}
+.opt{position:relative;border-radius:22px;border:1px solid rgba(255,255,255,.14);background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));padding:18px 8px 14px;color:#cfd6ff;font-family:inherit;transition:transform .5s var(--spring),box-shadow .3s,border-color .3s}
+.opt:nth-child(1){--c:#00e5ff}.opt:nth-child(2){--c:#ff3d9a}
+.opt svg{width:34px;height:34px;stroke:var(--c);filter:drop-shadow(0 0 8px var(--c))}
+.opt b{font-family:Orbitron,sans-serif;font-size:12px;letter-spacing:2px}
+.opt small{font-weight:600}
+.opt:active{transform:scale(.94)}
+.opt.on{transform:scale(1.05);border-color:var(--c);background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.03));box-shadow:0 0 0 1px var(--c),0 12px 34px rgba(0,0,0,.5),0 0 30px var(--c)}
+.opt.on b{color:#fff}
+.stepcard{background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:20px;box-shadow:inset 3px 0 0 #7c4dff;transition:all .4s var(--ios)}
+.stepcard.done{box-shadow:inset 3px 0 0 #39ff88,0 0 26px rgba(57,255,136,.2)}
+.stepcard .num{background:linear-gradient(135deg,#00e5ff,#7c4dff);color:#fff;font-family:Orbitron,sans-serif;box-shadow:0 0 16px rgba(0,229,255,.5)}
+.stepcard.done .num{background:linear-gradient(135deg,#39ff88,#00e5ff);color:#041;box-shadow:0 0 16px rgba(57,255,136,.55)}
+.stx b{font-weight:700;letter-spacing:.5px}
+.yt{background:linear-gradient(135deg,#ff1744,#ff6d00);border:0;color:#fff;border-radius:14px;font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:1.5px;box-shadow:0 8px 24px rgba(255,61,0,.45);transition:transform .4s var(--spring)}
+.yt:active{transform:scale(.92)}
+.vbtn,.cp{font-family:Orbitron,sans-serif;letter-spacing:1px;transition:transform .4s var(--spring)}
+.vbtn:active,.cp:active{transform:scale(.93)}
+.slot{border:1px solid rgba(255,179,0,.4);background:radial-gradient(circle at 50% 0,rgba(255,179,0,.16),rgba(124,77,255,.08) 60%,transparent);box-shadow:0 0 30px rgba(255,179,0,.12) inset}
+.slot .lbl{letter-spacing:3px;color:#ffd166;font-weight:700}
+.slot .val{font-family:Orbitron,sans-serif;background:linear-gradient(90deg,#ffb300,#ff3d9a,#7c4dff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn{border:0;border-radius:20px;color:#fff;font-family:Orbitron,sans-serif;font-weight:900;letter-spacing:2.5px;background:linear-gradient(110deg,#00e5ff,#7c4dff 25%,#ff3d9a 50%,#ffb300 75%,#00e5ff);background-size:220% 100%;animation:flow 4s linear infinite;box-shadow:0 14px 38px rgba(124,77,255,.55),inset 0 1px 0 rgba(255,255,255,.45);transition:transform .45s var(--spring),box-shadow .3s,filter .3s}
+.btn:active:not(:disabled){transform:scale(.94)}
+.btn:disabled{filter:grayscale(.9) brightness(.65);animation:none;box-shadow:none}
+.card>.res{animation:sheet .8s var(--ios) both;border:1px solid rgba(0,229,255,.3);background:linear-gradient(160deg,rgba(0,229,255,.08),rgba(124,77,255,.1));border-radius:24px}
+.got{font-family:Orbitron,sans-serif;letter-spacing:2px}
+.keybox{border:1px solid rgba(0,229,255,.4);background:rgba(0,229,255,.06);border-radius:16px}
+.cp{background:linear-gradient(135deg,#00e5ff,#7c4dff);color:#fff;border:0}
+.warn{color:#ffd166}
+/* real download card */
+.dlhead{display:flex;gap:14px;align-items:center;text-align:left;margin-bottom:14px}
+.appic{flex:none;width:68px;height:68px;border-radius:20px;background:linear-gradient(135deg,#ff3d9a,#7c4dff 60%,#00e5ff);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 28px rgba(255,61,154,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+.appic svg{width:34px;height:34px;stroke:#fff;stroke-width:2.4}
+.dlinfo{min-width:0}.dlinfo b{display:block;font-size:17px;font-weight:700;word-break:break-word}.dlinfo>span{display:block;font-size:12px;color:var(--mut);margin:2px 0 7px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips i{font-style:normal;font-size:10px;font-weight:700;letter-spacing:1.2px;padding:3px 9px;border-radius:999px;border:1px solid}
+.chips i:nth-child(1){color:#39ff88;border-color:#39ff8877;background:#39ff8818}.chips i:nth-child(2){color:#00e5ff;border-color:#00e5ff77;background:#00e5ff18}.chips i:nth-child(3){color:#ffb300;border-color:#ffb30077;background:#ffb30018}
+.dlstat{position:relative;height:20px;font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:2px;font-weight:700}
+.dlstat span{position:absolute;inset:0;text-align:center}
+.dlstat .s2{color:#39ff88;opacity:0}
+.dlprog{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin:6px 0 14px}
+.dlprog i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#00e5ff,#7c4dff,#ff3d9a)}
+.dlbtn{display:block;text-decoration:none;text-align:center;opacity:.35;pointer-events:none;transform:scale(.96)}
+.dlbtn:before{content:"";display:inline-block;width:18px;height:18px;margin:-3px 10px -3px 0;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v11m0 0l-4-4m4 4l4-4M5 20h14'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v11m0 0l-4-4m4 4l4-4M5 20h14'/%3E%3C/svg%3E") center/contain no-repeat;position:static;background-color:currentColor;transform:none;animation:none}
+.go .dlprog i{animation:fill 1s var(--ios) forwards}
+.go .dlstat .s1{animation:fadeout .25s ease 1s forwards}
+.go .dlstat .s2{animation:fadein .5s var(--spring) 1.05s forwards}
+.go .dlbtn{animation:flow 4s linear infinite,unlock .6s var(--spring) 1.05s forwards}
+@keyframes fill{to{width:100%}}@keyframes fadeout{to{opacity:0;transform:translateY(-8px)}}@keyframes fadein{from{transform:translateY(8px) scale(.9)}to{opacity:1;transform:none}}@keyframes unlock{to{opacity:1;pointer-events:auto;transform:none}}
+.steps i{color:#fff;font-style:normal;font-family:Orbitron,sans-serif}
+.steps li:nth-child(1) i{background:#00b8d4}.steps li:nth-child(2) i{background:#7c4dff}.steps li:nth-child(3) i{background:#ff3d9a}
+.foot{letter-spacing:1px}
+/* iPhone dynamic-island toast */
+#toast{top:calc(env(safe-area-inset-top,0px) + 10px);bottom:auto;left:50%;right:auto;background:#000;color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:12px 24px;font-weight:700;letter-spacing:.5px;opacity:0;transform:translate(-50%,-90px) scale(.5);box-shadow:0 14px 40px rgba(0,0,0,.6),0 0 24px rgba(0,229,255,.25);transition:transform .6s var(--spring),opacity .25s}
+#toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
+@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 <style>
 /* ===== WATCH VIDEO STEP (added) ===== */
@@ -104,18 +185,18 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
 <canvas id="fx"></canvas>
 
 <div class="card">
-  <div class="logo">🔑</div>
+  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.6v9.8l-8 4.6-8-4.6V7.1z"/><path d="M13.2 6.8l-4.2 6.2h3l-1.2 4.2 4.4-6.4h-3z" fill="#fff" stroke="none"/></svg></div>
   <h1 id="ttl">ANUBHAB MODZ</h1>
   <div class="sub" id="subt">Free access key generator</div>
   <div class="notice" id="notice" hidden></div>
-  <div class="tag" id="tag">⚡ Random time key</div>
+  <div class="tag" id="tag">Random time key</div>
 
   <div id="pick">
     <div id="chooser" hidden>
       <div class="note" style="margin:0 0 10px;font-size:13px;color:#cfe9ff">What do you want? Choose one:</div>
       <div class="pickrow">
-        <button class="opt" data-w="key"><span>🔑</span><b>GET KEY</b><small>Random time key</small></button>
-        <button class="opt" data-w="download"><span>⬇</span><b>DOWNLOAD LINK</b><small>Get the download</small></button>
+        <button class="opt" data-w="key"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/></svg><b>GET KEY</b><small>Random time key</small></button>
+        <button class="opt" data-w="download"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg><b>DOWNLOAD</b><small>Get the download</small></button>
       </div>
     </div>
     <div id="flow">
@@ -129,14 +210,14 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
         <svg viewBox="0 0 24 17" role="img" aria-label="YouTube"><rect width="24" height="17" rx="5" fill="#FF0000"/><polygon points="9.75,4.98 15.5,8.5 9.75,12.02" fill="#fff"/></svg>
         <div class="stx"><b id="vtitle">Watch the video</b><span id="vsub">Watch to continue</span></div>
       </div>
-      <div class="vwrap"><div id="vplayer"></div><div class="vlock" id="vlock"><span style="font-size:22px">🔒</span><span>Subscribe first to unlock the video</span></div></div>
+      <div class="vwrap"><div id="vplayer"></div><div class="vlock" id="vlock"><span>Subscribe first to unlock the video</span></div></div>
       <div class="vprog"><i id="vbar"></i></div>
       <div class="vstat"><span id="vst">Press ▶ play to start</span><span id="vct">0s</span></div>
       <div class="vmsg" id="vmsg"></div>
       <div class="vcm" id="vcm" hidden>
         <textarea id="vtxt" maxlength="300" placeholder="Write your comment…"></textarea>
         <div class="vmsg" id="vcode" style="margin:6px 0;font-weight:700"></div>
-        <div class="r2"><button class="vbtn" id="vpost">💬 POST COMMENT</button></div>
+        <div class="r2"><button class="vbtn" id="vpost">POST COMMENT</button></div>
         <div class="r2"><button class="vbtn alt" id="vdone" hidden>✓ I COMMENTED</button></div>
       </div>
     </div>
@@ -166,15 +247,20 @@ h1{margin:0;text-align:center;font-size:24px;letter-spacing:5px;font-weight:900;
       </svg>
       <div class="tx"><div class="tm" id="tm">--:--:--</div><div class="tl" id="tl">REMAINING</div></div>
     </div>
-    <div class="keybox"><code id="key"></code><button class="cp" id="copy">📋 COPY</button></div>
-    <div class="warn">⚠ Copy your key now. It is not saved on this website.</div>
+    <div class="keybox"><code id="key"></code><button class="cp" id="copy">COPY</button></div>
+    <div class="warn">Copy your key now. It is not saved on this website.</div>
   </div>
 
-  <div class="res" id="dlres" hidden>
-    <div class="got" id="dlgot">🎉 Your download is <b>ready</b></div>
-    <div id="dlname" style="font-weight:800;font-size:15px;margin:0 0 12px;word-break:break-word" hidden></div>
-    <a class="btn" id="dla" href="#" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;text-align:center">⬇ DOWNLOAD NOW</a>
-    <div class="keybox" style="margin-top:12px"><code id="dlurl" style="font-size:12px;font-weight:600"></code><button class="cp" id="dlcopy">📋 COPY</button></div>
+  <div class="res dl" id="dlres" hidden>
+    <div class="dlhead">
+      <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></div>
+      <div class="dlinfo"><b id="dlname">Your download</b><span>Verified file · secure link</span>
+        <div class="chips"><i>FREE</i><i>SECURE</i><i>FAST</i></div></div>
+    </div>
+    <div class="dlstat"><span class="s1">PREPARING YOUR FILE</span><span class="s2" id="dlgot">READY TO DOWNLOAD</span></div>
+    <div class="dlprog"><i></i></div>
+    <a class="btn dlbtn" id="dla" href="#" target="_blank" rel="noopener noreferrer">DOWNLOAD NOW</a>
+    <div class="keybox" style="margin-top:12px"><code id="dlurl" style="font-size:12px;font-weight:600"></code><button class="cp" id="dlcopy">COPY</button></div>
     <div class="warn">If the download does not start, press the button again.</div>
   </div>
 
@@ -207,7 +293,7 @@ async function api(path,method,data){
 }
 function setRange(r){
   if(r&&r.minMin){minMin=r.minMin;maxMin=r.maxMin;
-    $('tag').textContent='⚡ Random time: '+(minMin%60?minMin+' min':minMin/60+'h')+' – '+(maxMin%60?maxMin+' min':maxMin/60+'h');}
+    $('tag').textContent='Random time: '+(minMin%60?minMin+' min':minMin/60+'h')+' – '+(maxMin%60?maxMin+' min':maxMin/60+'h');}
 }
 
 /* ---- step state ---- */
@@ -243,7 +329,7 @@ function run(){
     const res=$('res');
     if(s<=0){
       res.classList.add('dead');$('tm').textContent='EXPIRED';$('tl').textContent='KEY STOPPED';
-      $('rp').style.strokeDashoffset=C;$('got').innerHTML='⛔ This key has expired';
+      $('rp').style.strokeDashoffset=C;$('got').innerHTML='This key has expired';
       clearInterval(tick);$('pick').hidden=false;$('slot').hidden=true;$('gen').textContent='GENERATE NEW KEY';return;
     }
     res.classList.remove('dead');
@@ -256,7 +342,7 @@ function run(){
 function show(key,e,t){
   exp=e;total=t||Math.max(1,e-Date.now());
   $('key').textContent=key;
-  $('got').innerHTML='🎉 You got <b>'+fmtMin(Math.round(total/60000))+'</b>';
+  $('got').innerHTML='You got <b>'+fmtMin(Math.round(total/60000))+'</b>';
   $('res').hidden=false;$('pick').hidden=true;$('msg').textContent='';
   run();confetti();
 }
@@ -295,16 +381,16 @@ async function doGenerate(token){
 /* ---- download result (download mode) ---- */
 function showDownload(r){
   if(!/^https?:\/\//i.test(r.url||'')){$('msg').className='msg bad';$('msg').textContent='Download link is not valid';return}
-  const a=$('dla');a.href=r.url;a.textContent='⬇ '+(r.label||dlLabel);
-  const nm=r.name||dlName;$('dlname').textContent=nm||'';$('dlname').hidden=!nm;
+  const a=$('dla');a.href=r.url;a.textContent=r.label||dlLabel;
+  $('dlname').textContent=r.name||dlName||'Your download';
   $('dlurl').textContent=r.url;
-  $('dlres').hidden=false;$('pick').hidden=true;$('msg').textContent='';confetti();
+  $('dlres').hidden=false;$('dlres').classList.remove('go');void $('dlres').offsetWidth;$('dlres').classList.add('go');$('pick').hidden=true;$('msg').textContent='';confetti();
 }
 $('dlcopy').onclick=()=>copy($('dlurl').textContent,'Link copied');
 function applyRMode(){
-  if(cfgMode==='both'&&!rmode){$('tag').textContent='Choose: 🔑 Key or ⬇ Download';return}
+  if(cfgMode==='both'&&!rmode){$('tag').textContent='Choose: Key or Download';return}
   const dl=rmode==='download';
-  $('tag').textContent=dl?'⬇ Free download':tagKey;
+  $('tag').textContent=dl?'Free download':tagKey;
   $('slot').hidden=dl;
   $('s2h').textContent=dl?'Get your download link':'Get your random-time key';
   $('stp2t').textContent=dl?'Press the button to get your download link':'Copy your key, open the app and paste it';
@@ -370,7 +456,7 @@ function confetti(){
   if(r.title)$('ttl').textContent=r.title;
   document.title='Get Free Key - '+(r.title||'');
   if(r.subtitle!==undefined)$('subt').textContent=r.subtitle;
-  if(r.notice){$('notice').textContent='📢 '+r.notice;$('notice').hidden=false}
+  if(r.notice){$('notice').textContent=r.notice;$('notice').hidden=false}
   if(r.ytHandle)$('chn').textContent=r.ytHandle;
   if(r.waitSec)SOFT_WAIT=r.waitSec*1000;
   cfgMode=(r.resultMode==='download'||r.resultMode==='both')?r.resultMode:'key';
@@ -507,8 +593,8 @@ function showComment(){
   if(V.cmShown)return;V.cmShown=true;
   $('vcm').hidden=false;
   $('vcode').textContent=V.cfg.codeMode&&V.code?('Your code: '+V.code+'  (it is added to your comment automatically)'):'';
-  $('vpost').textContent=real()?'💬 POST COMMENT ON YOUTUBE':'💬 COPY & OPEN YOUTUBE';
-  setMsg(real()?'Your comment is posted for real on the video, from your own Google account.':(V.cfg.codeMode?('👍 Open YouTube, LIKE the video and post a comment. Your code '+(V.code||'')+' is added to your comment automatically.'):'Write a comment, open YouTube, paste it there and post it.'));
+  $('vpost').textContent=real()?'POST COMMENT ON YOUTUBE':'COPY & OPEN YOUTUBE';
+  setMsg(real()?'Your comment is posted for real on the video, from your own Google account.':(V.cfg.codeMode?('Open YouTube, LIKE the video and post a comment. Your code '+(V.code||'')+' is added to your comment automatically.'):'Write a comment, open YouTube, paste it there and post it.'));
 }
 function gToken(cb,fail){
   const go=()=>{
@@ -539,10 +625,10 @@ $('vpost').onclick=()=>{
           V.commented=true;V.commentId=(j.snippet&&j.snippet.topLevelComment&&j.snippet.topLevelComment.id)||j.id;
           $('vcm').hidden=true;setMsg('✓ Comment posted on YouTube','ok');ui();
         }else{
-          V.fallback=true;$('vpost').textContent='💬 COPY & OPEN YOUTUBE';
+          V.fallback=true;$('vpost').textContent='COPY & OPEN YOUTUBE';
           setMsg('Could not post here ('+((j.error&&j.error.message)||'error')+'). Use the button to comment on YouTube directly.','bad');
         }
-      }catch(e){V.fallback=true;$('vpost').textContent='💬 COPY & OPEN YOUTUBE';setMsg('Network error. Use the button to comment on YouTube directly.','bad')}
+      }catch(e){V.fallback=true;$('vpost').textContent='COPY & OPEN YOUTUBE';setMsg('Network error. Use the button to comment on YouTube directly.','bad')}
       V.posting=false;$('vpost').disabled=false;
     },fail);
   }else{
