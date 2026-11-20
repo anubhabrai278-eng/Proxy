@@ -46,8 +46,15 @@ let settings = {
   ytUrl: YT_URL, ytHandle: YT_HANDLE,
   title: 'ANUBHAB MODZ', subtitle: 'Free access key generator', notice: '',
   closedMsg: 'Free keys are closed right now.',
-  resultMode: 'key', dlUrl: '', dlLabel: 'DOWNLOAD NOW', dlName: ''   // resultMode: 'key' = key generator, 'download' = download link (same subscribe/video/comment steps)
+  resultMode: 'key', dlUrl: '', dlLabel: 'DOWNLOAD NOW', dlName: '', dlVersion: '', dlSize: '', dlNotes: ''   // resultMode: 'key' = key generator, 'download' = download link (same subscribe/video/comment steps)
 };
+// devices that re-verified in the last 2.5 min (the app re-checks every minute) = "online now"
+const online = new Map();
+function onlineNow() {
+  const now = Date.now(), ks = new Set(); let d = 0;
+  for (const [id, t] of online) { if (now - t > 150000) { online.delete(id); continue; } d++; ks.add(id.split('|')[0]); }
+  return { devices: d, keys: ks.size };
+}
 let update = {
   enabled: false, latest: 0, title: 'Update Available',
   message: 'A new update is available. Tap UPDATE to open our WhatsApp channel.',
@@ -256,15 +263,17 @@ const chanGid = ch => 'c' + sha('g' + ch);          // identity from the comment
 const ipGid = req => 'i' + ipHash(req);             // fallback identity (no comment) = IP
 const pSecret = () => 'pass:' + ADMIN_PASS;
 const passSig = t => crypto.createHmac('sha256', pSecret()).update(t).digest('hex').slice(0, 24);
-const mkPass = (gid, exp) => { const t = gid + '.' + exp; return t + '.' + passSig(t); };
-function readPass(tok) {
+const normMode = m => (m === 'download' ? 'download' : 'key');
+// one pass per mode: finishing the video+comment for DOWNLOAD never hides them for KEY, and the other way round
+const mkPass = (gid, exp, mode) => { const t = gid + '.' + mode + '.' + exp; return t + '.' + passSig(t); };
+function readPass(tok, mode) {
   const a = String(tok || '').split('.');
-  if (a.length !== 3) return null;
-  const t = a[0] + '.' + a[1], want = passSig(t);
-  if (a[2].length !== want.length || !crypto.timingSafeEqual(Buffer.from(a[2]), Buffer.from(want))) return null;
-  const exp = Number(a[1]);
-  if (!(exp > Date.now()) || passes[a[0]] !== exp) return null;   // expired or reset by admin
-  return { gid: a[0], exp };
+  if (a.length !== 4 || a[1] !== normMode(mode)) return null;
+  const t = a[0] + '.' + a[1] + '.' + a[2], want = passSig(t);
+  if (a[3].length !== want.length || !crypto.timingSafeEqual(Buffer.from(a[3]), Buffer.from(want))) return null;
+  const exp = Number(a[2]);
+  if (!(exp > Date.now()) || passes[a[0] + '_' + a[1]] !== exp) return null;   // expired or reset by admin
+  return { gid: a[0], mode: a[1], exp };
 }
 
 // ---- video step state ----
@@ -632,6 +641,10 @@ http.createServer(async (req, res) => {
     if (req.method === 'POST' && url === '/api/verify') {
       if (!store.loaded) return send(res, 503, { ok: false, msg: 'Server database not ready, try again' });
       const b = await body(req);
+      if (update.maint) return send(res, 403, { ok: false, msg: update.maintMsg || 'The app is under maintenance. Please try again later.' });
+      // forced update: while the update popup is ON, apps older than "latest" (or that send no version) cannot log in at all
+      const av = parseInt(b.version) || parseInt(req.headers['x-app-version']) || 0;
+      if (update.enabled && (update.latest <= 0 || av < update.latest)) return send(res, 403, { ok: false, msg: 'Update required. Please install the latest version of the app.' });
       const key = String(b.key || '').trim().toUpperCase();
       const dev = String(b.device || '').slice(0, 100).replace(/[.$#\[\]\/]/g, '_');
       const k = keys[key];
@@ -647,11 +660,14 @@ http.createServer(async (req, res) => {
         k.devices[dev] = 1;
         fbq('/keys/' + key + '/devices/' + dev, 'PUT', 1);
       }
+      online.set(key + '|' + dev, Date.now());
       return send(res, 200, { ok: true, exp: k.exp });
     }
     if (req.method === 'GET' && url === '/api/config') {
       const qs = new URLSearchParams(req.url.split('?')[1] || '');
       const v = parseInt(qs.get('v') || req.headers['x-app-version']);
+      // MAINTENANCE MODE: every app (the app always sends ?v=) gets a blocking popup; admin (no ?v) still sees the raw settings
+      if (update.maint && !isNaN(v)) return send(res, 200, { ok: true, enabled: true, maint: true, title: 'Maintenance', message: update.maintMsg || 'The app is under maintenance. Please try again later.', link: update.link || settings.ytUrl || '', btn: 'CONTACT SUPPORT' });
       const cfg = { ...update };
       if (!isNaN(v) && update.latest > 0 && v >= update.latest) cfg.enabled = false;
       return send(res, 200, { ok: true, ...cfg });
@@ -677,7 +693,8 @@ http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, enabled: settings.freeEnabled, minMin: settings.minMin, maxMin: settings.maxMin,
         mode: GOOGLE_CLIENT_ID ? 'google' : 'soft', clientId: GOOGLE_CLIENT_ID, ytUrl: settings.ytUrl, ytHandle: settings.ytHandle,
         title: settings.title, subtitle: settings.subtitle, notice: settings.notice, closedMsg: settings.closedMsg, waitSec: settings.waitSec,
-        resultMode: settings.resultMode, dlLabel: settings.dlLabel, dlName: settings.dlName });   // dlUrl is NOT sent here, only after the steps are done
+        resultMode: settings.resultMode, dlLabel: settings.dlLabel, dlName: settings.dlName,
+        given24h: Object.values(keys).filter(k => k && k.pub && k.created > Date.now() - 864e5).length });   // dlUrl is NOT sent here, only after the steps are done
     }
     if (url === '/api/getkey/ticket' && req.method === 'GET') {
       if (throttled(req)) return send(res, 429, { ok: false, msg: 'Too many requests, wait a minute' });
@@ -688,7 +705,7 @@ http.createServer(async (req, res) => {
     if (url === '/api/getkey/video' && req.method === 'GET') {
       if (!video.enabled || !video.videoId) return send(res, 200, { ok: true, enabled: false });
       const qs0 = new URLSearchParams(req.url.split('?')[1] || '');
-      const pp = readPass(qs0.get('pass'));
+      const pp = readPass(qs0.get('pass'), qs0.get('mode'));
       if (pp) return send(res, 200, { ok: true, enabled: true, passed: true, left: pp.exp - Date.now(), videoId: video.videoId,
         watchSec: video.watchSec, requireComment: video.requireComment, title: video.title, hint: video.hint });
       return send(res, 200, { ok: true, enabled: true, videoId: video.videoId, watchSec: video.watchSec,
@@ -759,17 +776,18 @@ http.createServer(async (req, res) => {
       }
       vSessions.delete(b.sid);
       const pgid = author ? chanGid(author) : ipGid(req);
-      let pexp = passes[pgid], already = true;
-      if (!(pexp > Date.now())) {                    // first time (or the last pass ended): new pass
+      const pmode = normMode(b.mode), pkey = pgid + '_' + pmode;
+      let pexp = passes[pkey], already = true;
+      if (!(pexp > Date.now())) {                    // first time (or the last pass ended): new pass for THIS mode
         already = false;
         pexp = Date.now() + (video.passHours || 12) * 3600000;
-        passes[pgid] = pexp; fbq('/passes/' + pgid, 'PUT', pexp);
+        passes[pkey] = pexp; fbq('/passes/' + pkey, 'PUT', pexp);
         video.stats.done++; if (b.commented) video.stats.commented++;
         fb('/video/stats', 'PUT', video.stats).catch(() => {});
       }
       const vt = crypto.randomBytes(18).toString('hex');
       vTokens.set(vt, { exp: Date.now() + 36e5, author, gid: pgid });
-      return send(res, 200, { ok: true, vtoken: vt, pass: mkPass(pgid, pexp), passLeft: pexp - Date.now(), already });
+      return send(res, 200, { ok: true, vtoken: vt, pass: mkPass(pgid, pexp, pmode), passLeft: pexp - Date.now(), already });
     }
 
     // ---- get a free key ----
@@ -779,10 +797,12 @@ http.createServer(async (req, res) => {
       if (!settings.freeEnabled) return send(res, 403, { ok: false, msg: settings.closedMsg || 'Free keys are closed right now' });
       const b = await body(req);
 
-      // 0) video step
+      // resultMode 'both' = the visitor chooses (b.want = 'key' | 'download')
+      const want = settings.resultMode === 'both' ? (b.want === 'download' ? 'download' : 'key') : settings.resultMode;
+      // 0) video step (a pass only counts for the mode it was earned in)
       let vrec = null;
       if (video.enabled && video.videoId) {
-        if (b.pass) { const pp = readPass(b.pass); if (pp) vrec = { gid: pp.gid, author: '', exp: pp.exp, pass: true }; }
+        if (b.pass) { const pp = readPass(b.pass, want); if (pp) vrec = { gid: pp.gid, author: '', exp: pp.exp, pass: true }; }
         if (!vrec) { vrec = vTokens.get(b.vtoken); if (vrec && Date.now() > vrec.exp) vrec = null; }
         if (!vrec) return send(res, 200, { ok: false, needVideo: true, msg: 'Watch the video first' });
       }
@@ -803,12 +823,10 @@ http.createServer(async (req, res) => {
         gid = vrec.gid;   // no-login mode: one commenter channel (or IP) = one identity
       }
       // 1b) DOWNLOAD mode: all steps above are the same, but the user gets the download link instead of a key
-      // resultMode 'both' = the visitor chooses (b.want = 'key' | 'download')
-      const want = settings.resultMode === 'both' ? (b.want === 'download' ? 'download' : 'key') : settings.resultMode;
       if (want === 'download') {
         if (!settings.dlUrl) return send(res, 200, { ok: false, msg: 'Download link is not set yet. Try again later.' });
         if (b.vtoken) vTokens.delete(b.vtoken);   // video token is one-time
-        return send(res, 200, { ok: true, download: true, url: settings.dlUrl, label: settings.dlLabel, name: settings.dlName });
+        return send(res, 200, { ok: true, download: true, url: settings.dlUrl, label: settings.dlLabel, name: settings.dlName, version: settings.dlVersion, size: settings.dlSize, notes: settings.dlNotes });
       }
       // 2) daily limit (per IP and per Google channel)
       const ih = ipHash(req);
@@ -866,7 +884,7 @@ http.createServer(async (req, res) => {
       }
 
       if (req.method === 'GET' && url === '/api/admin/status')
-        return send(res, 200, { ok: true, ...store, freeEnabled: settings.freeEnabled, settings, ytMode: GOOGLE_CLIENT_ID ? 'google' : 'soft', commentCheck: !!YT_API_KEY, free: freeStats() });
+        return send(res, 200, { ok: true, ...store, freeEnabled: settings.freeEnabled, settings, ytMode: GOOGLE_CLIENT_ID ? 'google' : 'soft', commentCheck: !!YT_API_KEY, free: freeStats(), online: onlineNow() });
 
       if (req.method === 'POST' && url === '/api/admin/settings') {
         const b = await body(req);
@@ -890,6 +908,9 @@ http.createServer(async (req, res) => {
         }
         n.dlLabel = str(b.dlLabel, 30, n.dlLabel) || 'DOWNLOAD NOW';
         n.dlName = str(b.dlName, 60, n.dlName);
+        n.dlVersion = str(b.dlVersion, 20, n.dlVersion || '');
+        n.dlSize = str(b.dlSize, 20, n.dlSize || '');
+        if (b.dlNotes !== undefined) n.dlNotes = String(b.dlNotes).replace(/\r/g, '').slice(0, 400);
         if (n.resultMode !== 'key' && !n.dlUrl) return send(res, 400, { ok: false, msg: 'Add the download link first, then choose Download / Both mode' });
         if (b.ytUrl !== undefined) {
           const u = String(b.ytUrl).trim().slice(0, 300);
@@ -913,6 +934,8 @@ http.createServer(async (req, res) => {
         const n = { ...update };
         n.enabled = !!b.enabled;
         n.latest = clamp(b.latest, 0, 2000000000, n.latest || 0);
+        if (b.maint !== undefined) n.maint = !!b.maint;
+        if (b.maintMsg !== undefined) n.maintMsg = String(b.maintMsg).trim().slice(0, 200);
         if (b.title !== undefined) n.title = String(b.title).trim().slice(0, 60) || 'Update Available';
         if (b.message !== undefined) n.message = String(b.message).trim().slice(0, 300);
         if (b.link !== undefined) {

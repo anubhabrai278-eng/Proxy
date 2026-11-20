@@ -125,6 +125,12 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
     <input id="dl_name" type="text" maxlength="60" placeholder="e.g. ANUBHAB MODZ v2.0 APK">
     <div class="fl">Download button text</div>
     <input id="dl_label" type="text" maxlength="30" placeholder="DOWNLOAD NOW">
+    <div class="fl">Version (shown on the download card)</div>
+    <input id="dl_ver" type="text" maxlength="20" placeholder="e.g. 2.0">
+    <div class="fl">File size</div>
+    <input id="dl_size" type="text" maxlength="20" placeholder="e.g. 48 MB">
+    <div class="fl">What's new (one line per point)</div>
+    <textarea id="dl_notes" maxlength="400" rows="3" style="width:100%;box-sizing:border-box;border-radius:12px;padding:10px;background:#0b1020;color:#fff;border:1px solid #2a3350" placeholder="- New menu&#10;- Bug fixes"></textarea>
     <button class="btn" id="rm_save">Save</button>
   </div>
 
@@ -191,13 +197,15 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
   </div>
 
   <div class="card">
-    <h2>📣 Update popup</h2>
-    <div class="hint">While ON, the popup shows in OLD apps and blocks the app (no close button). UPDATE opens the link. Apps whose version is the same or newer than "Latest version" never see it.</div>
+    <h2>📣 App control <span class="chip ok" id="onl" style="margin-left:auto">ONLINE …</span></h2>
+    <div class="hint">While ON, the popup shows in every app whose version code is LOWER than "Latest version" (example: app is 7, you type 8) and blocks it (no close button). The server also refuses keys from those old apps. UPDATE opens the link. Apps with the same or a higher version code never see it.</div>
     <label class="sw"><span>Show update popup in app</span><input id="u_en" type="checkbox"><i class="t"></i></label>
     <input id="u_latest" type="number" min="0" placeholder="Latest APK version code (e.g. 2). 0 = show to everyone">
     <input id="u_title" type="text" placeholder="Title">
     <input id="u_msg" type="text" placeholder="Message">
     <input id="u_link" type="text" placeholder="Link (WhatsApp channel)">
+    <label class="sw"><span>Maintenance mode (locks the app for everyone)</span><input id="m_en" type="checkbox"><i class="t"></i></label>
+    <input id="m_msg" type="text" maxlength="200" placeholder="Maintenance message, e.g. Back in 30 minutes">
     <button class="btn" id="u_save">Save update popup</button>
   </div>
 
@@ -293,6 +301,7 @@ function setStatus(r){
   if(r.freeEnabled!==undefined&&document.activeElement!==$('f_en'))$('f_en').checked=!!r.freeEnabled;
   if(r.freeEnabled!==undefined){const f=$('f_state');f.className='chip '+(r.freeEnabled?'ok':'bad');f.textContent=r.freeEnabled?'● ON':'● OFF'}
   if(r.ytMode)$('f_yt').innerHTML='📺 YouTube subscribe check: '+(r.ytMode==='google'?'<b style="color:var(--ok)">Google verified</b> (real check)':'<b style="color:var(--warn)">Basic mode</b> (user must visit the channel; add GOOGLE_CLIENT_ID in Render for a real check)');
+  if(r.online&&$('onl'))$('onl').textContent='ONLINE '+r.online.devices+' device(s) · '+r.online.keys+' key(s)';
   if(r.free){$('fs_tot').textContent=r.free.total;$('fs_act').textContent=r.free.active;$('fs_day').textContent=r.free.today}
   if(r.error){c.className='chip bad';c.textContent='⚠ '+r.error}
   else if(r.loaded){c.className='chip ok';c.textContent='● Firebase · '+r.db}
@@ -305,7 +314,7 @@ function fillSettings(s){
   $('f_title').value=s.title||'';$('f_sub').value=s.subtitle||'';$('f_notice').value=s.notice||'';$('f_closed').value=s.closedMsg||'';
   $('f_ytu').value=s.ytUrl||'';$('f_yth').value=s.ytHandle||'';
   rmode=(s.resultMode==='download'||s.resultMode==='both')?s.resultMode:'key';setRM();
-  $('dl_url').value=s.dlUrl||'';$('dl_name').value=s.dlName||'';$('dl_label').value=s.dlLabel||'';
+  $('dl_url').value=s.dlUrl||'';$('dl_name').value=s.dlName||'';$('dl_label').value=s.dlLabel||'';$('dl_ver').value=s.dlVersion||'';$('dl_size').value=s.dlSize||'';$('dl_notes').value=s.dlNotes||'';
   const rc=$('rm_state');rc.className='chip ok';rc.textContent=rmode==='download'?'⬇ DOWNLOAD':rmode==='both'?'🔀 BOTH':'🔑 KEY';
 }
 function setRM(){[...$('rm_chips').children].forEach(x=>x.classList.toggle('on',x.dataset.m===rmode))}
@@ -383,7 +392,7 @@ const saveFree=async(msg)=>{
   const r=await call('/api/admin/settings','POST',{
     freeEnabled:$('f_en').checked,minMin:$('f_min').value,maxMin:$('f_max').value,freeDevices:$('f_dev').value,dailyLimit:$('f_day').value,waitSec:$('f_wait').value,
     title:$('f_title').value,subtitle:$('f_sub').value,notice:$('f_notice').value,closedMsg:$('f_closed').value,ytUrl:$('f_ytu').value,ytHandle:$('f_yth').value,
-    resultMode:rmode,dlUrl:$('dl_url').value,dlName:$('dl_name').value,dlLabel:$('dl_label').value});
+    resultMode:rmode,dlUrl:$('dl_url').value,dlName:$('dl_name').value,dlLabel:$('dl_label').value,dlVersion:$('dl_ver').value,dlSize:$('dl_size').value,dlNotes:$('dl_notes').value});
   if(!r.ok){toast(r.msg);return false}
   fillSettings(r.settings);status();
   toast(msg||(r.settings.freeEnabled?'Saved · website ON':'Saved · website OFF'));return true;
@@ -399,10 +408,10 @@ $('f_del').onclick=async()=>{if(!confirm('Delete ALL free keys?'))return;const r
 /* ---- update popup ---- */
 async function loadUpd(){
   const j=await call('/api/config');if(!j.ok)return;
-  $('u_en').checked=!!j.enabled;$('u_latest').value=j.latest||0;$('u_title').value=j.title||'';$('u_msg').value=j.message||'';$('u_link').value=j.link||'';
+  $('u_en').checked=!!j.enabled;$('u_latest').value=j.latest||0;$('u_title').value=j.title||'';$('u_msg').value=j.message||'';$('u_link').value=j.link||'';$('m_en').checked=!!j.maint;$('m_msg').value=j.maintMsg||'';
 }
 $('u_save').onclick=async()=>{
-  const j=await call('/api/admin/update','POST',{enabled:$('u_en').checked,latest:$('u_latest').value,title:$('u_title').value,message:$('u_msg').value,link:$('u_link').value});
+  const j=await call('/api/admin/update','POST',{enabled:$('u_en').checked,latest:$('u_latest').value,title:$('u_title').value,message:$('u_msg').value,link:$('u_link').value,maint:$('m_en').checked,maintMsg:$('m_msg').value});
   toast(j.ok?(j.enabled?'Saved · popup is ON':'Saved · popup is OFF'):j.msg);
 };
 
